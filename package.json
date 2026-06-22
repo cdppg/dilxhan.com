@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "wrangler pages dev public --d1=DB",
+    "dev": "wrangler pages dev public",
     "deploy": "wrangler pages deploy public",
     "db:create": "wrangler d1 create dilxhan-db",
     "db:migrate:local": "wrangler d1 execute dilxhan-db --local --file=./migrations/0001_init.sql",
