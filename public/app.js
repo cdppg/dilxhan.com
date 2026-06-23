@@ -26,6 +26,8 @@ const ICONS = {
   sparkle: '<svg viewBox="0 0 24 24"><path d="M12 2l1.5 6L20 10l-6.5 2L12 18l-1.5-6L4 10l6.5-2z"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14a8 8 0 1 1-8-9 6.5 6.5 0 0 0 8 9z"/></svg>',
   music: '<svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>',
+  leaf: '<svg viewBox="0 0 24 24"><path d="M5 19c-2-8 2-15 14-15-1 11-8 15-14 15z"/><path d="M6 18c3-4 6-7 11-12"/></svg>',
+  mushroom: '<svg viewBox="0 0 24 24"><path d="M4 11c0-5 16-5 16 0-2 1-14 1-16 0z"/><path d="M10 11v6a2 2 0 0 0 4 0v-6"/></svg>',
   default: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>',
 };
 
