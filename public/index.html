@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Dilxhan</title>
+  <meta name="description" content="Dilxhan — personal site." />
+
+  <!-- Fraunces (display, variable: weight + SOFT axis) + JetBrains Mono (UI) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,100..900,0..100&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <!-- Theme toggle -->
+  <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" title="Toggle theme (D)">
+    <span class="theme-toggle__icon" aria-hidden="true"></span>
+  </button>
+
+  <!-- Time-aware greeting, quiet, top-left -->
+  <p id="greeting" class="greeting" aria-live="polite"></p>
+
+  <main class="stage">
+
+    <!-- Hero: Dilxhan, SVG-clipped scene inside the letters -->
+    <section class="hero" aria-label="Dilxhan">
+      <svg
+        class="hero__svg"
+        viewBox="0 0 1000 260"
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label="Dilxhan"
+      >
+        <defs>
+          <clipPath id="hero-text-clip">
+            <text x="50%" y="195" text-anchor="middle" class="hero__text-path">Dilxhan</text>
+          </clipPath>
+          <linearGradient id="hero-sky-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" class="hero__sky-stop-1" />
+            <stop offset="100%" class="hero__sky-stop-2" />
+          </linearGradient>
+        </defs>
+
+        <!-- Fallback flat text (shown if JS/clip unsupported, hidden otherwise via CSS) -->
+        <text x="50%" y="195" text-anchor="middle" class="hero__text-fallback">Dilxhan</text>
+
+        <!-- Scene, clipped to the text shape above -->
+        <g clip-path="url(#hero-text-clip)" id="hero-scene">
+          <rect x="0" y="0" width="1000" height="260" fill="url(#hero-sky-gradient)" />
+          <g id="hero-scene-elements"></g>
+        </g>
+      </svg>
+    </section>
+
+    <!-- Socials -->
+    <nav class="socials" id="socials" aria-label="Social links">
+      <!-- populated by JS from /api/socials -->
+    </nav>
+
+    <!-- Hobby project tiles (icon-only, title appears on click) -->
+    <section class="tiles" id="tiles" aria-label="Hobby projects">
+      <!-- populated by JS from /api/hobby-projects -->
+    </section>
+
+    <!-- Command prompt -->
+    <div class="prompt" id="prompt-bar">
+      <span class="prompt__cursor" aria-hidden="true">|</span>
+      <div class="prompt__field">
+        <span class="prompt__typewriter" id="prompt-typewriter" aria-hidden="true"></span>
+        <input
+          type="text"
+          id="prompt-input"
+          class="prompt__input"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-label="Command input. Press slash or command K to focus. Type a word, or try a command."
+        />
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Tile detail popup -->
+  <div class="popup" id="tile-popup" hidden>
+    <div class="popup__card">
+      <p class="popup__title" id="popup-title"></p>
+      <p class="popup__desc" id="popup-desc"></p>
+      <a class="popup__link" id="popup-link" href="#" target="_blank" rel="noopener">open →</a>
+    </div>
+  </div>
+
+  <!-- Shortcuts overlay (triggered by ?) -->
+  <div class="shortcuts" id="shortcuts-overlay" hidden>
+    <div class="shortcuts__card">
+      <p class="shortcuts__row"><kbd>/</kbd> or <kbd>⌘K</kbd><span>open command prompt</span></p>
+      <p class="shortcuts__row"><kbd>D</kbd><span>toggle theme</span></p>
+      <p class="shortcuts__row"><kbd>?</kbd><span>this</span></p>
+      <p class="shortcuts__row"><kbd>esc</kbd><span>close</span></p>
+      <p class="shortcuts__hint">try typing something into the prompt.</p>
+    </div>
+  </div>
+
+  <!-- Layer where floating easter-egg reveals get injected -->
+  <div class="reveal-layer" id="reveal-layer" aria-hidden="true"></div>
+
+  <script src="/app.js" defer></script>
+  <script src="/hero-scene.js" defer></script>
+  <script src="/dictionary-engine.js" defer></script>
+  <script src="/command-palette.js" defer></script>
+</body>
+</html>

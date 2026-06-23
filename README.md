@@ -71,3 +71,49 @@ write a new migration file instead (e.g. `0003_update.sql`) with
 INSERT/UPDATE statements, and run it the same way. This keeps a
 clean history of changes, which matters once an admin portal is
 added (it'll be doing the same kind of writes, just through a UI).
+
+## Lookup logging (added in 0003_lookup_log.sql)
+Every word typed into the command prompt — hit or miss — is now
+logged to a `lookup_log` table. Run the new migration once against
+your real database to add it:
+
+```bash
+npx wrangler d1 execute dilxhan-db --remote --file=./migrations/0003_lookup_log.sql
+```
+
+(Run with `--local` too if you want this in your local dev database.)
+
+To see what people are actually typing, visit `/api/dictionary/stats`
+on your deployed site (not linked anywhere in the UI — it's just a
+data endpoint for you to check periodically). Add `?misses_only=1`
+to see only words that never matched anything, which is the most
+useful view for deciding what to add to the dictionary next.
+
+## Hobby projects now match by title (added in 0004)
+Run this migration too:
+
+```bash
+npx wrangler d1 execute dilxhan-db --remote --file=./migrations/0004_drop_hobby_dictionary_entries.sql
+```
+
+Typing a hobby project's name in the command prompt used to require
+a manually-set `dictionary_key` slug to match exactly — which broke
+if you typed the title with spaces/capitalization instead of the
+slug (e.g. typing "Extension One" didn't match `extensionone`).
+
+That's fixed now: **hobby projects are matched by their title,
+normalized automatically** (lowercased, spaces/punctuation stripped).
+There's no slug to set or keep in sync anymore.
+
+**To add a new hobby project**, just insert one row:
+
+```sql
+INSERT INTO hobby_projects (title, description, url, icon, sort_order)
+VALUES ('My New Thing', 'A short description.', 'https://example.com', 'code', 4);
+```
+
+Typing "My New Thing", "my new thing", or "MyNewThing" in the command
+prompt will all correctly pulse that tile — no second insert, no
+dictionary entry, no manual key. The `dictionary_key` column still
+exists on the table but is no longer read by the API; leave it blank
+on new rows.

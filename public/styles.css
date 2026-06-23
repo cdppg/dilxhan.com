@@ -1,0 +1,590 @@
+/* ============================================================
+   Dilxhan.com — base styles
+   Design tokens drive both themes; toggling [data-theme] flips
+   the whole palette + hero scene mood in one motion.
+   ============================================================ */
+
+:root {
+  /* ---- Light theme (default) — thriving forest ---- */
+  --bg: #FAF8F3;
+  --text: #1A1F1B;
+  --text-muted: #5A5F58;
+  --accent: #2D5E3F;       /* forest green */
+  --accent-muted: #8B6F47; /* bark brown */
+  --border: rgba(26, 31, 27, 0.14);
+  --border-strong: rgba(26, 31, 27, 0.28);
+
+  --scene-sky-1: #C3DDBC;
+  --scene-sky-2: #9FC896;
+  --scene-creature: #0D2614;
+  --scene-ember-color: #C9472B;
+
+  --font-display: 'Fraunces', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.75rem;
+  --space-4: 2.5rem;
+
+  --radius: 3px;
+  --transition-theme: 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html[data-theme="dark"] {
+  /* ---- Dark theme — the same forest, burning ---- */
+  --bg: #0D0B0A;
+  --text: #F2EDE4;
+  --text-muted: #A39C92;
+  --accent: #C9472B;        /* ember */
+  --accent-muted: #4A4641;  /* ash */
+  --border: rgba(242, 237, 228, 0.12);
+  --border-strong: rgba(242, 237, 228, 0.24);
+
+  --scene-sky-1: #3D1C12;
+  --scene-sky-2: #2A130C;
+  --scene-creature: #6B2A18;
+  --scene-ember-color: #FF8A4C;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* no scroll, ever */
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  transition: background var(--transition-theme), color var(--transition-theme);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Respect reduced-motion preference globally */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------- Stage: the single viewport, vertically centered ---------- */
+
+.stage {
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.1rem, 0.5vh, 0.4rem);
+  padding: clamp(1rem, 4vw, 3rem);
+  /* Optical centering: the hero glyph weight sits high in its box
+     (Fraunces cap-height vs. thin baseline elements below), so a
+     mathematically centered block still reads as sitting too high.
+     This nudge shifts the whole group down slightly to compensate —
+     verified against the heavier/lighter visual weight, not a layout bug. */
+  transform: translateY(3vh);
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  width: 80vw;
+  max-width: 1400px;
+  margin-bottom: -0.5vh;
+  opacity: 0;
+  transition: opacity 350ms ease-out;
+}
+
+.hero.is-fitted {
+  opacity: 1;
+}
+
+.hero__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.hero__text-path,
+.hero__text-fallback {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 200px;
+  font-variation-settings: 'SOFT' 100, 'opsz' 144;
+  letter-spacing: -0.01em;
+}
+
+.hero__text-fallback {
+  fill: var(--text);
+  opacity: 0; /* hidden once scene renders; safety fallback only */
+}
+
+.hero__sky-stop-1 {
+  stop-color: var(--scene-sky-1);
+  transition: stop-color var(--transition-theme);
+}
+
+.hero__sky-stop-2 {
+  stop-color: var(--scene-sky-2);
+  transition: stop-color var(--transition-theme);
+}
+
+.scene-silhouette {
+  fill: var(--scene-creature);
+  color: var(--scene-creature);
+  transition: fill var(--transition-theme), color var(--transition-theme);
+}
+
+.scene-ember {
+  fill: var(--scene-ember-color);
+}
+
+/* ---------- Socials ---------- */
+
+.socials {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.socials a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.1rem;
+  border-bottom: 1px solid transparent;
+  transition: color 200ms, border-color 200ms;
+}
+
+.socials a:hover,
+.socials a:focus-visible {
+  color: var(--text);
+  border-bottom-color: var(--border-strong);
+}
+
+.socials svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+}
+
+/* ---------- Hobby tiles (icon-only) ---------- */
+
+.tiles {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.tile {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: border-color 200ms, color 200ms, transform 200ms;
+}
+
+.tile:hover,
+.tile:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--text);
+  transform: translateY(-2px);
+}
+
+.tile.is-pulsing {
+  animation: tile-pulse 900ms ease-out;
+}
+
+@keyframes tile-pulse {
+  0%   { box-shadow: 0 0 0 0 var(--accent); border-color: var(--accent); }
+  70%  { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; border-color: var(--border); }
+}
+
+.tile svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+}
+
+/* ---------- Command prompt ---------- */
+
+.prompt {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--text);
+  min-width: 220px;
+  position: relative;
+}
+
+.prompt__cursor {
+  color: var(--accent);
+  font-weight: 600;
+  animation: blink 1s step-end infinite;
+  user-select: none;
+}
+
+.prompt__field {
+  position: relative;
+  width: 220px;
+}
+
+.prompt__typewriter {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  opacity: 0.55;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+}
+
+/* hide the typewriter placeholder once the user has typed something
+   or the input is focused (real cursor takes over at that point) */
+.prompt__field.is-occupied .prompt__typewriter {
+  display: none;
+}
+
+.prompt__input {
+  position: relative;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  caret-color: var(--accent);
+  width: 100%;
+  padding: 0.2em 0;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  50.01%, 100% { opacity: 0; }
+}
+
+/* ---------- Theme toggle ---------- */
+
+.theme-toggle {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: border-color 200ms, color 200ms;
+  z-index: 20;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.theme-toggle__icon {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  position: relative;
+  display: block;
+}
+
+html[data-theme="dark"] .theme-toggle__icon {
+  background: currentColor;
+}
+
+/* ---------- Time-aware greeting ---------- */
+
+.greeting {
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+  z-index: 20;
+}
+
+/* ---------- Tile popup ---------- */
+
+.popup {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+
+.popup[hidden] {
+  display: none;
+}
+
+.popup__card {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  max-width: 320px;
+  text-align: left;
+}
+
+.popup__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.3rem;
+  margin: 0 0 0.5rem;
+  color: var(--text);
+}
+
+.popup__desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+
+.popup__link {
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.popup__link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- Shortcuts overlay ---------- */
+
+.shortcuts {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 50;
+}
+
+.shortcuts[hidden] {
+  display: none;
+}
+
+.shortcuts__card {
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  font-size: 0.85rem;
+}
+
+.shortcuts__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0.5rem 0;
+}
+
+.shortcuts__row span {
+  color: var(--text-muted);
+}
+
+.shortcuts__hint {
+  margin-top: var(--space-2);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+kbd {
+  font-family: var(--font-mono);
+  background: var(--accent-muted);
+  color: var(--bg);
+  border-radius: 3px;
+  padding: 0.15em 0.5em;
+  font-size: 0.8rem;
+  min-width: 1.6em;
+  text-align: center;
+}
+
+/* ---------- Floating reveal layer ---------- */
+
+.reveal-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.reveal-item {
+  position: absolute;
+  pointer-events: auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 500ms ease-out;
+}
+
+.reveal-item.is-visible {
+  opacity: 1;
+}
+
+.reveal-item svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+}
+
+/* Light mode: calm bloom-in (transform/filter only — opacity is
+   handled by .is-visible's transition so fade-out doesn't fight
+   against an animation's forwards fill-mode) */
+.reveal-item.is-entering {
+  animation: reveal-bloom-light 700ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes reveal-bloom-light {
+  0%   { transform: scale(0.4); }
+  60%  { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+/* Dark mode: sharper ember-pop */
+html[data-theme="dark"] .reveal-item.is-entering {
+  animation: reveal-pop-dark 450ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes reveal-pop-dark {
+  0%   { transform: scale(0.3); filter: brightness(2); }
+  50%  { transform: scale(1.15); filter: brightness(1.6); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+.reveal-item.is-fading {
+  opacity: 0;
+}
+
+.reveal-item.is-paused {
+  transition: none;
+}
+
+/* Tooltip card shown on hover, before the item fades away.
+   Default: centered above. Edge-aware modifier classes (added in JS
+   based on actual position) flip the anchor so it never clips off
+   the viewport near margins. */
+.reveal-item__tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  width: 200px;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Flip below the icon when there's not enough room above */
+.reveal-item__tooltip.tooltip-below {
+  bottom: auto;
+  top: calc(100% + 10px);
+}
+
+/* Anchor to the left edge of the icon instead of centering,
+   when centered would overflow the right side of the viewport */
+.reveal-item__tooltip.tooltip-align-left {
+  left: 0;
+  transform: none;
+}
+
+/* Anchor to the right edge of the icon instead of centering,
+   when centered would overflow the left side of the viewport */
+.reveal-item__tooltip.tooltip-align-right {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.reveal-item__tooltip-quote {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.reveal-item:hover .reveal-item__tooltip {
+  opacity: 1;
+}
+
+/* ---------- Responsive: keep everything inside viewport on small screens ---------- */
+
+@media (max-width: 640px) {
+  .socials,
+  .tiles {
+    gap: var(--space-2);
+  }
+
+  .prompt__input {
+    width: 160px;
+  }
+}
+
+@media (max-height: 560px) {
+  .stage {
+    gap: 0.6rem;
+  }
+
+  .hero {
+    width: 70vw;
+  }
+}
