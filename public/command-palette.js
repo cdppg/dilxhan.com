@@ -16,14 +16,26 @@
   // moment the user focuses or types, this stops and the field shows
   // their real input instead.
 
-  const BASE_PHRASES = [
+  const BASE_PHRASES_DESKTOP = [
     'enter your command',
     'try "coffee"',
     'press ? for shortcuts',
     'type something weird',
   ];
 
+  const BASE_PHRASES_TOUCH = [
+    'enter your command',
+    'try "coffee"',
+    'type something weird',
+  ];
+
+  function isTouchDevice() {
+    return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  }
+
   function getTypewriterPhrases() {
+    const base = isTouchDevice() ? BASE_PHRASES_TOUCH : BASE_PHRASES_DESKTOP;
+
     const count =
       window.__dilxhanDictionary && typeof window.__dilxhanDictionary.getDiscoveredCount === 'function'
         ? window.__dilxhanDictionary.getDiscoveredCount()
@@ -31,9 +43,9 @@
 
     if (count > 0) {
       const label = count === 1 ? '1 thing discovered' : `${count} things discovered`;
-      return [...BASE_PHRASES, label];
+      return [...base, label];
     }
-    return BASE_PHRASES;
+    return base;
   }
 
   let twPhraseIndex = 0;

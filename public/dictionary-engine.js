@@ -149,19 +149,56 @@
       fadeTimeoutId = setTimeout(() => {
         item.classList.remove('is-entering', 'is-visible'); // stop entrance animation + visible state from fighting the fade
         item.classList.add('is-fading');
-        setTimeout(() => item.remove(), FADE_DURATION_MS);
+        setTimeout(() => {
+          document.removeEventListener('click', handleOutsideTap);
+          item.remove();
+        }, FADE_DURATION_MS);
       }, REVEAL_LIFETIME_MS);
     }
 
-    item.addEventListener('mouseenter', () => {
+    function pauseFade() {
       if (fadeTimeoutId) clearTimeout(fadeTimeoutId);
       item.classList.remove('is-fading');
       item.classList.add('is-visible'); // restore visibility if a fade had begun
-    });
+    }
 
+    // Desktop: hover shows the tooltip directly (handled by CSS
+    // :hover), and also pauses the fade timer via JS.
+    item.addEventListener('mouseenter', pauseFade);
     item.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('is-open');
       startFadeTimer();
     });
+
+    // Touch / click: tap toggles the tooltip open explicitly (since
+    // there's no hover state on touch devices), pauses the fade
+    // while open, and tapping anywhere else closes it and resumes
+    // the fade countdown.
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = tooltip.classList.contains('is-open');
+
+      // close any other open tooltip first, so only one shows at a time
+      document.querySelectorAll('.reveal-item__tooltip.is-open').forEach((t) => {
+        if (t !== tooltip) t.classList.remove('is-open');
+      });
+
+      if (isOpen) {
+        tooltip.classList.remove('is-open');
+        startFadeTimer();
+      } else {
+        tooltip.classList.add('is-open');
+        pauseFade();
+      }
+    });
+
+    function handleOutsideTap(e) {
+      if (!item.contains(e.target) && tooltip.classList.contains('is-open')) {
+        tooltip.classList.remove('is-open');
+        startFadeTimer();
+      }
+    }
+    document.addEventListener('click', handleOutsideTap);
 
     startFadeTimer();
   }

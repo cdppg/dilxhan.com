@@ -77,9 +77,17 @@
           autocomplete="off"
           autocapitalize="off"
           spellcheck="false"
+          inputmode="none"
           aria-label="Command input. Press slash or command K to focus. Type a word, or try a command."
         />
       </div>
+    </div>
+
+    <!-- Custom on-screen keyboard — used on touch devices instead of
+         the OS keyboard, so the page never zooms/scrolls to keep a
+         native input in view. Built/shown only via JS. -->
+    <div class="touch-keyboard" id="touch-keyboard" hidden>
+      <div class="touch-keyboard__rows" id="touch-keyboard-rows"></div>
     </div>
 
   </main>
@@ -111,5 +119,6 @@
   <script src="/hero-scene.js" defer></script>
   <script src="/dictionary-engine.js" defer></script>
   <script src="/command-palette.js" defer></script>
+  <script src="/touch-keyboard.js" defer></script>
 </body>
 </html>
