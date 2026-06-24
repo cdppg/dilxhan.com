@@ -660,7 +660,7 @@ html[data-theme="dark"] .reveal-item.is-entering {
 .touch-key--backspace,
 .touch-key--123,
 .touch-key--abc,
-.touch-key--\#abc {
+.touch-key--symbols {
   flex: 1.5;
   max-width: 60px;
   background: transparent;

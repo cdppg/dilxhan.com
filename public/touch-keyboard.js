@@ -19,12 +19,19 @@
   const NUMBER_ROW = [
     ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
     ['-', '/', ':', ';', '(', ')', '$', '&', '@', '"'],
-    ['#abc', '.', ',', '?', '!', "'", 'backspace'],
+    ['#+=', '.', ',', '?', '!', "'", 'backspace'],
+    ['abc', 'space', 'enter'],
+  ];
+
+  const SYMBOLS_ROW = [
+    ['[', ']', '{', '}', '#', '%', '^', '*', '+', '='],
+    ['_', '\\', '|', '~', '<', '>', '€', '£', '¥', '•'],
+    ['123', '.', ',', '?', '!', "'", 'backspace'],
     ['abc', 'space', 'enter'],
   ];
 
   let isShiftActive = false;
-  let isNumberMode = false;
+  let currentPage = 'letters'; // 'letters' | 'numbers' | 'symbols'
   let isOpen = false;
 
   function isTouchDevice() {
@@ -43,42 +50,77 @@
       space: ' ',
       '123': '123',
       abc: 'ABC',
-      '#abc': '#+=',
+      '#+=': '#+=',
     };
     if (labels[key]) return labels[key];
     return isShiftActive ? key.toUpperCase() : key;
   }
 
+  const WIDE_KEY_IDS = {
+    shift: 'shift',
+    backspace: 'backspace',
+    '123': '123',
+    abc: 'abc',
+    '#+=': 'symbols',
+    space: 'space',
+    enter: 'enter',
+  };
+
   function keyClass(key) {
-    const wide = ['shift', 'backspace', 'space', 'enter', '123', 'abc', '#abc'];
-    return wide.includes(key) ? `touch-key touch-key--${key}` : 'touch-key';
+    const id = WIDE_KEY_IDS[key];
+    return id ? `touch-key touch-key--${id}` : 'touch-key';
   }
 
   function render() {
     const container = document.getElementById('touch-keyboard-rows');
     if (!container) return;
 
-    const rows = isNumberMode ? NUMBER_ROW : ROWS;
+    const pageRows = { letters: ROWS, numbers: NUMBER_ROW, symbols: SYMBOLS_ROW };
+    const rows = pageRows[currentPage] || ROWS;
+
     container.innerHTML = rows
       .map(
         (row) => `
         <div class="touch-keyboard__row">
-          ${row.map((key) => `<button type="button" class="${keyClass(key)}" data-key="${key}">${keyLabel(key)}</button>`).join('')}
+          ${row.map((key) => `<button type="button" class="${keyClass(key)}" data-key="${escapeAttr(key)}">${keyLabel(key)}</button>`).join('')}
         </div>`
       )
       .join('');
 
     container.querySelectorAll('.touch-key').forEach((btn) => {
+      // Prevent the input from blurring when a key is tapped — click's
+      // preventDefault() alone doesn't stop the browser's default
+      // focus-shift behavior, which happens on mousedown. (Note:
+      // deliberately NOT calling preventDefault on touchstart — doing
+      // so can suppress the synthetic click event entirely on some
+      // touch browsers, which broke key presses during testing.)
+      btn.addEventListener('mousedown', (e) => e.preventDefault());
+
       btn.addEventListener('click', (e) => {
-        e.preventDefault(); // don't let the button steal focus / trigger native behavior
+        e.preventDefault();
+        e.stopPropagation(); // don't let this bubble to the document-level
+                              // outside-click handler — re-rendering the
+                              // keyboard (innerHTML swap) on this same tick
+                              // can otherwise make kb.contains(e.target)
+                              // misbehave once the original button node has
+                              // been replaced, incorrectly closing the keyboard.
         handleKey(btn.dataset.key);
       });
     });
   }
 
-  function handleKey(key) {
+  function escapeAttr(str) {
+    return String(str).replace(/"/g, '&quot;');
+  }
+
+  function unescapeAttr(str) {
+    return String(str).replace(/&quot;/g, '"');
+  }
+
+  function handleKey(rawKey) {
     const input = getInput();
     if (!input) return;
+    const key = unescapeAttr(rawKey);
 
     switch (key) {
       case 'backspace':
@@ -95,12 +137,15 @@
         render();
         return; // don't fall through to the input-event dispatch below
       case '123':
-        isNumberMode = true;
+        currentPage = 'numbers';
+        render();
+        return;
+      case '#+=':
+        currentPage = 'symbols';
         render();
         return;
       case 'abc':
-      case '#abc':
-        isNumberMode = key === '#abc';
+        currentPage = 'letters';
         render();
         return;
       default:
@@ -121,7 +166,7 @@
     const kb = document.getElementById('touch-keyboard');
     if (!kb) return;
     isOpen = true;
-    isNumberMode = false;
+    currentPage = 'letters';
     isShiftActive = false;
     render();
     kb.hidden = false;
