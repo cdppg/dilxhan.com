@@ -265,6 +265,15 @@
     // Escape press should) closes the keyboard.
     window.addEventListener('dilxhan:prompt-escape', closeKeyboard);
 
+    // A successful dictionary hit (floating reveal or tile pulse)
+    // closes the keyboard so the user can actually see it — a miss
+    // deliberately does NOT trigger this, so rapid-fire guessing
+    // doesn't require re-opening the keyboard each time.
+    window.addEventListener('dilxhan:dictionary-hit', () => {
+      input.blur();
+      closeKeyboard();
+    });
+
     window.addEventListener('resize', () => {
       if (isOpen) {
         const kb = document.getElementById('touch-keyboard');

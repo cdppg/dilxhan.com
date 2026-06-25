@@ -255,6 +255,12 @@
         } else {
           spawnFloatingReveal({ icon: data.icon, fact: data.fact, quote: data.quote });
         }
+
+        // Touch devices: close the custom keyboard so the reveal/pulse
+        // is actually visible, not hidden behind it. Misses deliberately
+        // don't fire this — keep the keyboard open so the user can
+        // immediately try another word without re-tapping the input.
+        window.dispatchEvent(new CustomEvent('dilxhan:dictionary-hit'));
       } else {
         missStreak += 1;
         showMissMessage(data.message || '...nothing here.');
