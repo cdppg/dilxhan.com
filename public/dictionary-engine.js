@@ -13,6 +13,14 @@
   const REVEAL_LIFETIME_MS = 4200;
   const FADE_DURATION_MS = 500;
 
+  // Detected once — touch devices skip mouseenter/mouseleave handlers
+  // entirely (see spawnFloatingReveal) rather than relying only on
+  // CSS to suppress :hover, since synthetic mouse events fired by
+  // touch browsers on tap can still trigger JS mouse listeners even
+  // when CSS :hover is suppressed, causing a brief, confusing flicker
+  // of the tooltip before the real tap-to-open logic takes over.
+  const IS_TOUCH_DEVICE = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
   let missStreak = 0;
   let discoveredWords = loadDiscovered();
 
@@ -162,13 +170,18 @@
       item.classList.add('is-visible'); // restore visibility if a fade had begun
     }
 
-    // Desktop: hover shows the tooltip directly (handled by CSS
-    // :hover), and also pauses the fade timer via JS.
-    item.addEventListener('mouseenter', pauseFade);
-    item.addEventListener('mouseleave', () => {
-      tooltip.classList.remove('is-open');
-      startFadeTimer();
-    });
+    // Desktop only: hover shows the tooltip directly (handled by CSS
+    // :hover), and also pauses the fade timer via JS. Touch devices
+    // skip this entirely — synthetic mouseenter/mouseleave events
+    // fired by touch browsers on tap were racing against the
+    // explicit tap-to-open logic below, causing a brief flicker.
+    if (!IS_TOUCH_DEVICE) {
+      item.addEventListener('mouseenter', pauseFade);
+      item.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('is-open');
+        startFadeTimer();
+      });
+    }
 
     // Touch / click: tap toggles the tooltip open explicitly (since
     // there's no hover state on touch devices), pauses the fade
