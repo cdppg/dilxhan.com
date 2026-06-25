@@ -184,7 +184,7 @@ function initEventListeners() {
       if (document.activeElement === promptInput) {
         promptInput.value = '';
         promptInput.blur();
-        window.dispatchEvent(new CustomEvent('dilxhan:prompt-reset'));
+        window.dispatchEvent(new CustomEvent('dilxhan:prompt-escape'));
       }
     }
 

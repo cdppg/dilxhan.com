@@ -107,6 +107,14 @@
         handleKey(btn.dataset.key);
       });
     });
+
+    // Re-position after every render — switching pages (letters vs
+    // numbers vs symbols) can change the keyboard's height, which
+    // shifts where it needs to sit to stay centered above the floor.
+    if (isOpen) {
+      const kb = document.getElementById('touch-keyboard');
+      if (kb) requestAnimationFrame(() => positionKeyboard(kb));
+    }
   }
 
   function escapeAttr(str) {
@@ -161,6 +169,41 @@
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  function positionKeyboard(kb) {
+    // Hard constraint: the keyboard's BOTTOM edge must never cross
+    // below the tiles row — that's the floor it can't pass.
+    // Within the remaining space (from the top of the viewport down
+    // to that floor), center the keyboard vertically, rather than
+    // anchoring it to the bottom.
+    const tiles = document.querySelector('.tiles');
+    if (!tiles) return;
+
+    const tilesRect = tiles.getBoundingClientRect();
+    const gapAboveTiles = 18; // breathing room between keyboard's bottom and the tiles row
+    const floorY = tilesRect.top - gapAboveTiles; // lowest Y the keyboard's bottom edge may reach
+
+    // Measure the keyboard's natural height first (it must be
+    // visible/un-hidden for this to read correctly).
+    const kbHeight = kb.getBoundingClientRect().height || kb.scrollHeight;
+
+    // Center within [0, floorY]:
+    const availableSpace = Math.max(floorY, 0);
+    const idealTop = Math.max((availableSpace - kbHeight) / 2, 8);
+    let topY = idealTop;
+    let bottomY = topY + kbHeight;
+
+    // If centering would push the bottom edge past the floor (e.g. on
+    // a very short viewport where the keyboard barely fits at all),
+    // clamp so the bottom edge sits exactly at the floor instead.
+    if (bottomY > floorY) {
+      bottomY = floorY;
+      topY = Math.max(bottomY - kbHeight, 8);
+    }
+
+    kb.style.top = `${topY}px`;
+    kb.style.bottom = 'auto';
+  }
+
   function openKeyboard() {
     if (!isTouchDevice()) return;
     const kb = document.getElementById('touch-keyboard');
@@ -168,8 +211,8 @@
     isOpen = true;
     currentPage = 'letters';
     isShiftActive = false;
-    render();
     kb.hidden = false;
+    render(); // render() repositions automatically since isOpen is true
     requestAnimationFrame(() => kb.classList.add('is-open'));
   }
 
@@ -191,19 +234,43 @@
 
     input.addEventListener('focus', openKeyboard);
 
-    // Tapping anywhere outside the input or the keyboard itself closes it.
+    // Tapping anywhere outside the input/prompt area or the keyboard
+    // itself closes it. Using coordinate/bounding-box checks instead
+    // of DOM containment — some touch/tap implementations resolve
+    // the click's e.target to an unexpected ancestor depending on
+    // exact hit-testing with inputmode="none" inputs, so containment
+    // checks against e.target were unreliable in testing.
     document.addEventListener('click', (e) => {
-      const kb = document.getElementById('touch-keyboard');
       if (!isOpen) return;
-      if (e.target === input) return;
-      if (kb && kb.contains(e.target)) return;
+
+      const kb = document.getElementById('touch-keyboard');
+      const promptEl = document.querySelector('.prompt');
+      const x = e.clientX;
+      const y = e.clientY;
+
+      const insideRect = (el) => {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+      };
+
+      if (insideRect(promptEl) || insideRect(kb)) return;
+
       input.blur();
       closeKeyboard();
     });
 
-    // Escape (e.g. from app.js's Escape handling, which blurs the
-    // input) should also close the keyboard.
-    window.addEventListener('dilxhan:prompt-reset', closeKeyboard);
+    // Escape specifically (not every prompt reset — a miss message's
+    // own reset shouldn't dismiss the keyboard, only an explicit
+    // Escape press should) closes the keyboard.
+    window.addEventListener('dilxhan:prompt-escape', closeKeyboard);
+
+    window.addEventListener('resize', () => {
+      if (isOpen) {
+        const kb = document.getElementById('touch-keyboard');
+        if (kb) positionKeyboard(kb);
+      }
+    });
   }
 
   if (document.readyState === 'loading') {
