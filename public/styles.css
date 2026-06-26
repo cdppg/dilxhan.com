@@ -466,6 +466,17 @@ kbd {
   color: var(--accent);
   opacity: 0;
   transition: opacity 500ms ease-out;
+  /* button reset — this is a <button> now for proper native touch
+     interactivity, but should look identical to the old div */
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reveal-item:focus {
+  outline: none;
 }
 
 .reveal-item.is-visible {
@@ -505,10 +516,6 @@ html[data-theme="dark"] .reveal-item.is-entering {
 
 .reveal-item.is-fading {
   opacity: 0;
-}
-
-.reveal-item.is-paused {
-  transition: none;
 }
 
 /* Tooltip card shown on hover, before the item fades away.
@@ -562,22 +569,9 @@ html[data-theme="dark"] .reveal-item.is-entering {
   font-style: italic;
 }
 
-.reveal-item:hover .reveal-item__tooltip {
+.reveal-item:hover .reveal-item__tooltip,
+.reveal-item:focus .reveal-item__tooltip {
   opacity: 1;
-}
-
-.reveal-item__tooltip.is-open {
-  opacity: 1;
-}
-
-/* On touch devices, disable the :hover-triggered reveal — touch
-   browsers can apply :hover "stuck on" after a tap, which would
-   show two overlapping trigger states. Tap-driven .is-open handles
-   touch exclusively instead. */
-@media (hover: none) {
-  .reveal-item:hover .reveal-item__tooltip {
-    opacity: 0;
-  }
 }
 
 /* ---------- Responsive: keep everything inside viewport on small screens ---------- */

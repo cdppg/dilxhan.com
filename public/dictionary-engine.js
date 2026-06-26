@@ -106,10 +106,12 @@
 
     const { x, y } = pickRandomPosition();
 
-    const item = document.createElement('div');
+    const item = document.createElement('button');
+    item.type = 'button';
     item.className = 'reveal-item is-entering';
     item.style.left = `${x}px`;
     item.style.top = `${y}px`;
+    item.setAttribute('aria-label', 'Discovered item — tap for details');
 
     const iconMarkup =
       (window.__dilxhan && window.__dilxhan.iconMarkup && window.__dilxhan.iconMarkup(icon)) ||
@@ -154,44 +156,33 @@
     function fadeAndRemove() {
       item.classList.remove('is-entering', 'is-visible');
       item.classList.add('is-fading');
-      setTimeout(() => {
-        document.removeEventListener('click', handleOutsideTap);
-        item.remove();
-      }, FADE_DURATION_MS);
+      setTimeout(() => item.remove(), FADE_DURATION_MS);
     }
 
-    let handleOutsideTap = null;
-
     if (IS_TOUCH_DEVICE) {
-      // Touch: deliberately simple, two states only.
-      //   - tap the icon -> tooltip opens, auto-fade is cancelled
-      //     outright (not paused/resumable — fully stopped)
-      //   - tap anywhere else -> tooltip closes, THEN a fresh
-      //     fade-out timer starts from zero
-      // No shared timer state between these two paths, so there's
-      // no window where one path's cleanup can race the other's.
+      // Touch: uses the button's native focus state instead of a
+      // hand-rolled open/closed class + document-level outside-tap
+      // listener. Tapping a <button> focuses it natively; tapping
+      // anywhere else on the page naturally blurs it — the browser
+      // handles both for free, with no custom event-tracking to get
+      // wrong. CSS shows the tooltip on :focus (see styles.css).
       let autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
 
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
+      item.addEventListener('focus', () => {
         if (autoFadeTimeoutId) {
           clearTimeout(autoFadeTimeoutId);
           autoFadeTimeoutId = null;
         }
-        document.querySelectorAll('.reveal-item__tooltip.is-open').forEach((t) => {
-          if (t !== tooltip) t.classList.remove('is-open');
-        });
-        tooltip.classList.add('is-open');
+        // Close the custom keyboard if it happens to be open — having
+        // both the keyboard and a tooltip open at once causes them to
+        // visually collide (the tooltip can render on top of/inside
+        // the keyboard depending on where the icon spawned).
+        window.dispatchEvent(new CustomEvent('dilxhan:dictionary-hit'));
       });
 
-      handleOutsideTap = (e) => {
-        if (item.contains(e.target)) return;
-        if (tooltip.classList.contains('is-open')) {
-          tooltip.classList.remove('is-open');
-          autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
-        }
-      };
-      document.addEventListener('click', handleOutsideTap);
+      item.addEventListener('blur', () => {
+        autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
+      });
     } else {
       // Desktop: hover shows the tooltip (CSS :hover) and pauses the
       // auto-fade for as long as the cursor stays on the icon;
