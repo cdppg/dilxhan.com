@@ -151,79 +151,64 @@
       item.classList.add('is-visible');
     });
 
-    let fadeStartTimeoutId = null;
-    let removeTimeoutId = null;
-
-    function startFadeTimer() {
-      fadeStartTimeoutId = setTimeout(() => {
-        item.classList.remove('is-entering', 'is-visible'); // stop entrance animation + visible state from fighting the fade
-        item.classList.add('is-fading');
-        removeTimeoutId = setTimeout(() => {
-          document.removeEventListener('click', handleOutsideTap);
-          item.remove();
-        }, FADE_DURATION_MS);
-      }, REVEAL_LIFETIME_MS);
+    function fadeAndRemove() {
+      item.classList.remove('is-entering', 'is-visible');
+      item.classList.add('is-fading');
+      setTimeout(() => {
+        document.removeEventListener('click', handleOutsideTap);
+        item.remove();
+      }, FADE_DURATION_MS);
     }
 
-    function pauseFade() {
-      // Both timers must be cleared — a tap landing AFTER the fade has
-      // already started (is-fading applied) but BEFORE the element is
-      // actually removed would otherwise re-show the tooltip for a
-      // moment, only for the still-pending removal timer to delete the
-      // element out from under it a beat later. That's the "pops for
-      // a millisecond" bug: only the outer timer was being cancelled.
-      if (fadeStartTimeoutId) clearTimeout(fadeStartTimeoutId);
-      if (removeTimeoutId) clearTimeout(removeTimeoutId);
-      fadeStartTimeoutId = null;
-      removeTimeoutId = null;
-      item.classList.remove('is-fading');
-      item.classList.add('is-visible'); // restore visibility if a fade had begun
-    }
+    let handleOutsideTap = null;
 
-    // Desktop only: hover shows the tooltip directly (handled by CSS
-    // :hover), and also pauses the fade timer via JS. Touch devices
-    // skip this entirely — synthetic mouseenter/mouseleave events
-    // fired by touch browsers on tap were racing against the
-    // explicit tap-to-open logic below, causing a brief flicker.
-    if (!IS_TOUCH_DEVICE) {
-      item.addEventListener('mouseenter', pauseFade);
-      item.addEventListener('mouseleave', () => {
-        tooltip.classList.remove('is-open');
-        startFadeTimer();
-      });
-    }
+    if (IS_TOUCH_DEVICE) {
+      // Touch: deliberately simple, two states only.
+      //   - tap the icon -> tooltip opens, auto-fade is cancelled
+      //     outright (not paused/resumable — fully stopped)
+      //   - tap anywhere else -> tooltip closes, THEN a fresh
+      //     fade-out timer starts from zero
+      // No shared timer state between these two paths, so there's
+      // no window where one path's cleanup can race the other's.
+      let autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
 
-    // Touch / click: tap toggles the tooltip open explicitly (since
-    // there's no hover state on touch devices), pauses the fade
-    // while open, and tapping anywhere else closes it and resumes
-    // the fade countdown.
-    item.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isOpen = tooltip.classList.contains('is-open');
-
-      // close any other open tooltip first, so only one shows at a time
-      document.querySelectorAll('.reveal-item__tooltip.is-open').forEach((t) => {
-        if (t !== tooltip) t.classList.remove('is-open');
-      });
-
-      if (isOpen) {
-        tooltip.classList.remove('is-open');
-        startFadeTimer();
-      } else {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (autoFadeTimeoutId) {
+          clearTimeout(autoFadeTimeoutId);
+          autoFadeTimeoutId = null;
+        }
+        document.querySelectorAll('.reveal-item__tooltip.is-open').forEach((t) => {
+          if (t !== tooltip) t.classList.remove('is-open');
+        });
         tooltip.classList.add('is-open');
-        pauseFade();
-      }
-    });
+      });
 
-    function handleOutsideTap(e) {
-      if (!item.contains(e.target) && tooltip.classList.contains('is-open')) {
-        tooltip.classList.remove('is-open');
-        startFadeTimer();
-      }
+      handleOutsideTap = (e) => {
+        if (item.contains(e.target)) return;
+        if (tooltip.classList.contains('is-open')) {
+          tooltip.classList.remove('is-open');
+          autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
+        }
+      };
+      document.addEventListener('click', handleOutsideTap);
+    } else {
+      // Desktop: hover shows the tooltip (CSS :hover) and pauses the
+      // auto-fade for as long as the cursor stays on the icon;
+      // leaving resumes the countdown from zero.
+      let autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
+
+      item.addEventListener('mouseenter', () => {
+        if (autoFadeTimeoutId) {
+          clearTimeout(autoFadeTimeoutId);
+          autoFadeTimeoutId = null;
+        }
+      });
+
+      item.addEventListener('mouseleave', () => {
+        autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
+      });
     }
-    document.addEventListener('click', handleOutsideTap);
-
-    startFadeTimer();
   }
 
   function escapeHtml(str) {
