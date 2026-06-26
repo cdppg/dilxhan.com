@@ -151,13 +151,14 @@
       item.classList.add('is-visible');
     });
 
-    let fadeTimeoutId = null;
+    let fadeStartTimeoutId = null;
+    let removeTimeoutId = null;
 
     function startFadeTimer() {
-      fadeTimeoutId = setTimeout(() => {
+      fadeStartTimeoutId = setTimeout(() => {
         item.classList.remove('is-entering', 'is-visible'); // stop entrance animation + visible state from fighting the fade
         item.classList.add('is-fading');
-        setTimeout(() => {
+        removeTimeoutId = setTimeout(() => {
           document.removeEventListener('click', handleOutsideTap);
           item.remove();
         }, FADE_DURATION_MS);
@@ -165,7 +166,16 @@
     }
 
     function pauseFade() {
-      if (fadeTimeoutId) clearTimeout(fadeTimeoutId);
+      // Both timers must be cleared — a tap landing AFTER the fade has
+      // already started (is-fading applied) but BEFORE the element is
+      // actually removed would otherwise re-show the tooltip for a
+      // moment, only for the still-pending removal timer to delete the
+      // element out from under it a beat later. That's the "pops for
+      // a millisecond" bug: only the outer timer was being cancelled.
+      if (fadeStartTimeoutId) clearTimeout(fadeStartTimeoutId);
+      if (removeTimeoutId) clearTimeout(removeTimeoutId);
+      fadeStartTimeoutId = null;
+      removeTimeoutId = null;
       item.classList.remove('is-fading');
       item.classList.add('is-visible'); // restore visibility if a fade had begun
     }
