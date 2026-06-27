@@ -33,6 +33,9 @@
   let isShiftActive = false;
   let currentPage = 'letters'; // 'letters' | 'numbers' | 'symbols'
   let isOpen = false;
+  let suppressOutsideClick = false; // true briefly during/after drag or resize,
+                                     // so the gesture's trailing click isn't
+                                     // mistaken for an outside-tap-to-close
 
   function isTouchDevice() {
     return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -69,6 +72,29 @@
   function keyClass(key) {
     const id = WIDE_KEY_IDS[key];
     return id ? `touch-key touch-key--${id}` : 'touch-key';
+  }
+
+  function clampIntoValidBounds(kb) {
+    // Used after page switches (letters/numbers/symbols can have
+    // different heights) — keeps the keyboard's bottom edge above
+    // the tiles floor and its edges on-screen, WITHOUT resetting
+    // user drag/resize. Full reset to the default layout only
+    // happens on initial open (see resetToDefaultPosition).
+    const tiles = document.querySelector('.tiles');
+    if (!tiles) return;
+
+    const rect = kb.getBoundingClientRect();
+    const floorY = tiles.getBoundingClientRect().top - 18;
+
+    if (rect.bottom > floorY) {
+      kb.style.top = `${Math.max(4, floorY - rect.height)}px`;
+    }
+    if (rect.right > window.innerWidth - 4) {
+      kb.style.left = `${Math.max(4, window.innerWidth - rect.width - 4)}px`;
+    }
+    if (rect.left < 4) {
+      kb.style.left = '4px';
+    }
   }
 
   function render() {
@@ -108,12 +134,14 @@
       });
     });
 
-    // Re-position after every render — switching pages (letters vs
-    // numbers vs symbols) can change the keyboard's height, which
-    // shifts where it needs to sit to stay centered above the floor.
+    // Keep within valid bounds after every render — switching pages
+    // (letters vs numbers vs symbols) can change the keyboard's
+    // height. This does NOT reset user drag/resize, just prevents
+    // the (possibly taller/shorter) keyboard from ending up off-screen
+    // or overlapping the tiles after a page switch.
     if (isOpen) {
       const kb = document.getElementById('touch-keyboard');
-      if (kb) requestAnimationFrame(() => positionKeyboard(kb));
+      if (kb) requestAnimationFrame(() => clampIntoValidBounds(kb));
     }
   }
 
@@ -169,39 +197,166 @@
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  function positionKeyboard(kb) {
-    // Hard constraint: the keyboard's BOTTOM edge must never cross
-    // below the tiles row — that's the floor it can't pass.
-    // Within the remaining space (from the top of the viewport down
-    // to that floor), center the keyboard vertically, rather than
-    // anchoring it to the bottom.
+  const DEFAULT_SIDE_MARGIN = 16;
+  const DEFAULT_MAX_WIDTH = 480;
+  const MIN_KEYBOARD_WIDTH = 240;
+  const MIN_KEYBOARD_SCALE = 0.6;
+  const MAX_KEYBOARD_SCALE = 1.6;
+
+  function resetToDefaultPosition(kb) {
+    // This computes the same "centered overlay, clears the tiles
+    // row, side margins" layout as before — but as explicit pixel
+    // left/top/width, since free dragging and resizing both require
+    // real values to manipulate rather than CSS auto-centering.
+    // Called every time the keyboard opens, per spec: current
+    // size/position is always the default starting point, even if
+    // the user dragged/resized it last time it was open.
     const tiles = document.querySelector('.tiles');
     if (!tiles) return;
 
+    const defaultWidth = Math.min(window.innerWidth - DEFAULT_SIDE_MARGIN * 2, DEFAULT_MAX_WIDTH);
+    kb.style.width = `${defaultWidth}px`;
+    kb.style.left = `${(window.innerWidth - defaultWidth) / 2}px`;
+
     const tilesRect = tiles.getBoundingClientRect();
-    const gapAboveTiles = 18; // breathing room between keyboard's bottom and the tiles row
-    const floorY = tilesRect.top - gapAboveTiles; // lowest Y the keyboard's bottom edge may reach
+    const gapAboveTiles = 18;
+    const floorY = tilesRect.top - gapAboveTiles;
 
-    // Measure the keyboard's natural height first (it must be
-    // visible/un-hidden for this to read correctly).
     const kbHeight = kb.getBoundingClientRect().height || kb.scrollHeight;
-
-    // Center within [0, floorY]:
     const availableSpace = Math.max(floorY, 0);
     const idealTop = Math.max((availableSpace - kbHeight) / 2, 8);
     let topY = idealTop;
     let bottomY = topY + kbHeight;
 
-    // If centering would push the bottom edge past the floor (e.g. on
-    // a very short viewport where the keyboard barely fits at all),
-    // clamp so the bottom edge sits exactly at the floor instead.
     if (bottomY > floorY) {
       bottomY = floorY;
       topY = Math.max(bottomY - kbHeight, 8);
     }
 
     kb.style.top = `${topY}px`;
-    kb.style.bottom = 'auto';
+  }
+
+  // ---------- Drag (via handle) ----------
+
+  function setupDrag(kb) {
+    const handle = document.getElementById('touch-keyboard-handle');
+    if (!handle) return;
+
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+    let dragging = false;
+
+    function onPointerDown(e) {
+      dragging = true;
+      suppressOutsideClick = true;
+      kb.classList.add('is-dragging');
+      startX = e.clientX;
+      startY = e.clientY;
+      const rect = kb.getBoundingClientRect();
+      startLeft = rect.left;
+      startTop = rect.top;
+      handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+    }
+
+    function onPointerMove(e) {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const rect = kb.getBoundingClientRect();
+
+      // Keep the whole keyboard within the viewport horizontally, and
+      // don't let its bottom edge cross below the tiles-row floor
+      // (same hard constraint as the default position).
+      const tiles = document.querySelector('.tiles');
+      const floorY = tiles ? tiles.getBoundingClientRect().top - 18 : window.innerHeight;
+
+      let newLeft = startLeft + dx;
+      let newTop = startTop + dy;
+
+      newLeft = Math.max(4, Math.min(newLeft, window.innerWidth - rect.width - 4));
+      newTop = Math.max(4, Math.min(newTop, floorY - rect.height));
+
+      kb.style.left = `${newLeft}px`;
+      kb.style.top = `${newTop}px`;
+    }
+
+    function onPointerUp(e) {
+      dragging = false;
+      kb.classList.remove('is-dragging');
+      handle.releasePointerCapture && handle.releasePointerCapture(e.pointerId);
+      setTimeout(() => { suppressOutsideClick = false; }, 50);
+    }
+
+    handle.addEventListener('pointerdown', onPointerDown);
+    handle.addEventListener('pointermove', onPointerMove);
+    handle.addEventListener('pointerup', onPointerUp);
+    handle.addEventListener('pointercancel', onPointerUp);
+  }
+
+  // ---------- Resize (via corner grip) ----------
+
+  function setupResize(kb) {
+    const grip = document.getElementById('touch-keyboard-resize');
+    if (!grip) return;
+
+    let startX = 0;
+    let startWidth = 0;
+    let startFontScale = 1;
+    let resizing = false;
+
+    function onPointerDown(e) {
+      resizing = true;
+      suppressOutsideClick = true;
+      kb.classList.add('is-resizing');
+      startX = e.clientX;
+      startWidth = kb.getBoundingClientRect().width;
+      grip.setPointerCapture && grip.setPointerCapture(e.pointerId);
+    }
+
+    function onPointerMove(e) {
+      if (!resizing) return;
+      const dx = e.clientX - startX;
+      let newWidth = startWidth + dx;
+
+      const maxWidth = window.innerWidth - 8;
+      newWidth = Math.max(MIN_KEYBOARD_WIDTH, Math.min(newWidth, maxWidth));
+
+      kb.style.width = `${newWidth}px`;
+
+      // Scale key/font size proportionally with width, within sane
+      // bounds, so resizing actually changes usability rather than
+      // just stretching empty space.
+      const scale = Math.max(
+        MIN_KEYBOARD_SCALE,
+        Math.min(newWidth / DEFAULT_MAX_WIDTH, MAX_KEYBOARD_SCALE)
+      );
+      kb.style.setProperty('--touch-kb-scale', scale);
+
+      // Keep the bottom edge off the tiles floor after a height change
+      // from font scaling — re-clamp top if needed.
+      const tiles = document.querySelector('.tiles');
+      if (tiles) {
+        const floorY = tiles.getBoundingClientRect().top - 18;
+        const rect = kb.getBoundingClientRect();
+        if (rect.bottom > floorY) {
+          kb.style.top = `${Math.max(4, floorY - rect.height)}px`;
+        }
+      }
+    }
+
+    function onPointerUp(e) {
+      resizing = false;
+      kb.classList.remove('is-resizing');
+      grip.releasePointerCapture && grip.releasePointerCapture(e.pointerId);
+      setTimeout(() => { suppressOutsideClick = false; }, 50);
+    }
+
+    grip.addEventListener('pointerdown', onPointerDown);
+    grip.addEventListener('pointermove', onPointerMove);
+    grip.addEventListener('pointerup', onPointerUp);
+    grip.addEventListener('pointercancel', onPointerUp);
   }
 
   function openKeyboard() {
@@ -212,8 +367,12 @@
     currentPage = 'letters';
     isShiftActive = false;
     kb.hidden = false;
-    render(); // render() repositions automatically since isOpen is true
-    requestAnimationFrame(() => kb.classList.add('is-open'));
+    kb.style.removeProperty('--touch-kb-scale'); // reset any prior resize scale too
+    render();
+    requestAnimationFrame(() => {
+      resetToDefaultPosition(kb); // always start from the default layout on open, per spec
+      kb.classList.add('is-open');
+    });
   }
 
   function closeKeyboard() {
@@ -232,6 +391,12 @@
     const input = getInput();
     if (!input) return;
 
+    const kb = document.getElementById('touch-keyboard');
+    if (kb) {
+      setupDrag(kb);
+      setupResize(kb);
+    }
+
     input.addEventListener('focus', openKeyboard);
 
     // Tapping anywhere outside the input/prompt area or the keyboard
@@ -242,6 +407,7 @@
     // checks against e.target were unreliable in testing.
     document.addEventListener('click', (e) => {
       if (!isOpen) return;
+      if (suppressOutsideClick) return; // drag/resize gesture just ended — its trailing click isn't a real outside-tap
 
       const kb = document.getElementById('touch-keyboard');
       const promptEl = document.querySelector('.prompt');
@@ -277,7 +443,7 @@
     window.addEventListener('resize', () => {
       if (isOpen) {
         const kb = document.getElementById('touch-keyboard');
-        if (kb) positionKeyboard(kb);
+        if (kb) clampIntoValidBounds(kb);
       }
     });
   }

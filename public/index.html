@@ -85,9 +85,15 @@
 
     <!-- Custom on-screen keyboard — used on touch devices instead of
          the OS keyboard, so the page never zooms/scrolls to keep a
-         native input in view. Built/shown only via JS. -->
+         native input in view. Built/shown only via JS. Draggable via
+         the handle bar, resizable via the corner grip; both default
+         to the original centered position/size on every open. -->
     <div class="touch-keyboard" id="touch-keyboard" hidden>
+      <div class="touch-keyboard__handle" id="touch-keyboard-handle" aria-hidden="true">
+        <span class="touch-keyboard__handle-bar"></span>
+      </div>
       <div class="touch-keyboard__rows" id="touch-keyboard-rows"></div>
+      <div class="touch-keyboard__resize-grip" id="touch-keyboard-resize" aria-hidden="true"></div>
     </div>
 
   </main>

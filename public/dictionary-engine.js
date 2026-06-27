@@ -160,28 +160,63 @@
     }
 
     if (IS_TOUCH_DEVICE) {
-      // Touch: uses the button's native focus state instead of a
-      // hand-rolled open/closed class + document-level outside-tap
-      // listener. Tapping a <button> focuses it natively; tapping
-      // anywhere else on the page naturally blurs it — the browser
-      // handles both for free, with no custom event-tracking to get
-      // wrong. CSS shows the tooltip on :focus (see styles.css).
+      // Touch: explicit open/closed state via a class, NOT native
+      // focus/blur. Native focus turned out to be fragile here —
+      // closing the custom keyboard (which happens automatically when
+      // a reveal is tapped, to avoid the two overlays colliding) was
+      // enough to knock focus off the button in some cases, instantly
+      // triggering blur's fade timer and closing the tooltip far
+      // sooner than intended. Explicit state has no such side effects:
+      // nothing other than this code ever touches `is-open`.
       let autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
+      let isOpen = false;
 
-      item.addEventListener('focus', () => {
+      function openTooltip() {
         if (autoFadeTimeoutId) {
           clearTimeout(autoFadeTimeoutId);
           autoFadeTimeoutId = null;
         }
+        isOpen = true;
+        tooltip.classList.add('is-open');
         // Close the custom keyboard if it happens to be open — having
         // both the keyboard and a tooltip open at once causes them to
         // visually collide (the tooltip can render on top of/inside
-        // the keyboard depending on where the icon spawned).
+        // the keyboard depending on where the icon spawned). This is
+        // now safe to do regardless of focus side effects, since the
+        // tooltip's open state no longer depends on focus at all.
         window.dispatchEvent(new CustomEvent('dilxhan:dictionary-hit'));
+      }
+
+      function closeTooltip() {
+        isOpen = false;
+        tooltip.classList.remove('is-open');
+        autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
+      }
+
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (isOpen) {
+          closeTooltip();
+        } else {
+          // close any other open tooltip first, so only one shows at a time
+          document.querySelectorAll('.reveal-item__tooltip.is-open').forEach((t) => {
+            const otherItem = t.closest('.reveal-item');
+            if (otherItem && otherItem !== item && otherItem.__dilxhanCloseTooltip) {
+              otherItem.__dilxhanCloseTooltip();
+            }
+          });
+          openTooltip();
+        }
       });
 
-      item.addEventListener('blur', () => {
-        autoFadeTimeoutId = setTimeout(fadeAndRemove, REVEAL_LIFETIME_MS);
+      // Exposed so other reveal items can close THIS one when they
+      // open (see the "close any other open tooltip" loop above).
+      item.__dilxhanCloseTooltip = closeTooltip;
+
+      document.addEventListener('click', (e) => {
+        if (isOpen && !item.contains(e.target)) {
+          closeTooltip();
+        }
       });
     } else {
       // Desktop: hover shows the tooltip (CSS :hover) and pauses the
