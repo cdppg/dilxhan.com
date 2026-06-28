@@ -42,6 +42,10 @@
             <stop offset="0%" class="hero__sky-stop-1" />
             <stop offset="100%" class="hero__sky-stop-2" />
           </linearGradient>
+          <linearGradient id="hero-water-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" class="hero__water-stop-1" />
+            <stop offset="100%" class="hero__water-stop-2" />
+          </linearGradient>
         </defs>
 
         <!-- Fallback flat text (shown if JS/clip unsupported, hidden otherwise via CSS) -->
@@ -49,7 +53,8 @@
 
         <!-- Scene, clipped to the text shape above -->
         <g clip-path="url(#hero-text-clip)" id="hero-scene">
-          <rect x="0" y="0" width="1000" height="260" fill="url(#hero-sky-gradient)" />
+          <rect x="0" y="0" width="1000" height="260" fill="var(--scene-air-bg, transparent)" id="hero-scene-air" />
+          <path id="hero-water-body" fill="url(#hero-water-gradient)" d="" />
           <g id="hero-scene-elements"></g>
         </g>
       </svg>
@@ -129,7 +134,8 @@
   <div class="reveal-layer" id="reveal-layer" aria-hidden="true"></div>
 
   <script src="/app.js" defer></script>
-  <script src="/hero-scene.js" defer></script>
+  <!-- <script src="/hero-scene.js" defer></script> -->  <!-- forest/fire concept, paused while evaluating the water-vessel concept below -->
+  <script src="/hero-water-scene.js" defer></script>
   <script src="/dictionary-engine.js" defer></script>
   <script src="/command-palette.js" defer></script>
   <script src="/touch-keyboard.js" defer></script>

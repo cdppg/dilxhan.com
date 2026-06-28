@@ -19,6 +19,12 @@
   --scene-creature: #0D2614;
   --scene-ember-color: #C9472B;
 
+  /* Water-vessel hero concept (new) */
+  --scene-air-bg: #EAF4F2;
+  --scene-water-1: #A8D8D8;
+  --scene-water-2: #6FB6C2;
+  --scene-water-surface: #C5E8E4;
+
   --font-display: 'Fraunces', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
@@ -136,6 +142,16 @@ body {
 
 .hero__sky-stop-2 {
   stop-color: var(--scene-sky-2);
+  transition: stop-color var(--transition-theme);
+}
+
+.hero__water-stop-1 {
+  stop-color: var(--scene-water-1);
+  transition: stop-color var(--transition-theme);
+}
+
+.hero__water-stop-2 {
+  stop-color: var(--scene-water-2);
   transition: stop-color var(--transition-theme);
 }
 
