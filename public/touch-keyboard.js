@@ -37,6 +37,12 @@
                                      // so the gesture's trailing click isn't
                                      // mistaken for an outside-tap-to-close
 
+  // Remembers where the user last left the keyboard (position + size
+  // + scale), in-memory only — resets to the default layout on a full
+  // page reload, but persists across repeated open/close within the
+  // same session. Null until the user actually drags or resizes once.
+  let savedLayout = null; // { left, top, width, scale } | null
+
   function isTouchDevice() {
     return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   }
@@ -76,18 +82,16 @@
 
   function clampIntoValidBounds(kb) {
     // Used after page switches (letters/numbers/symbols can have
-    // different heights) — keeps the keyboard's bottom edge above
-    // the tiles floor and its edges on-screen, WITHOUT resetting
-    // user drag/resize. Full reset to the default layout only
-    // happens on initial open (see resetToDefaultPosition).
-    const tiles = document.querySelector('.tiles');
-    if (!tiles) return;
-
+    // different heights) — keeps the keyboard fully on-screen
+    // WITHOUT resetting user drag/resize position. Only the actual
+    // viewport edges constrain this now, not the tiles row — the
+    // user may have deliberately dragged the keyboard below the
+    // tiles, and a page switch shouldn't fight that placement.
     const rect = kb.getBoundingClientRect();
-    const floorY = tiles.getBoundingClientRect().top - 18;
+    const bottomLimit = window.innerHeight - 4;
 
-    if (rect.bottom > floorY) {
-      kb.style.top = `${Math.max(4, floorY - rect.height)}px`;
+    if (rect.bottom > bottomLimit) {
+      kb.style.top = `${Math.max(4, bottomLimit - rect.height)}px`;
     }
     if (rect.right > window.innerWidth - 4) {
       kb.style.left = `${Math.max(4, window.innerWidth - rect.width - 4)}px`;
@@ -208,9 +212,10 @@
     // row, side margins" layout as before — but as explicit pixel
     // left/top/width, since free dragging and resizing both require
     // real values to manipulate rather than CSS auto-centering.
-    // Called every time the keyboard opens, per spec: current
-    // size/position is always the default starting point, even if
-    // the user dragged/resized it last time it was open.
+    // Only called the FIRST time the keyboard ever opens (or any time
+    // there's no remembered position yet) — see openKeyboard(). Once
+    // the user has dragged/resized, that becomes the new default for
+    // subsequent opens this session.
     const tiles = document.querySelector('.tiles');
     if (!tiles) return;
 
@@ -266,17 +271,18 @@
       const dy = e.clientY - startY;
       const rect = kb.getBoundingClientRect();
 
-      // Keep the whole keyboard within the viewport horizontally, and
-      // don't let its bottom edge cross below the tiles-row floor
-      // (same hard constraint as the default position).
-      const tiles = document.querySelector('.tiles');
-      const floorY = tiles ? tiles.getBoundingClientRect().top - 18 : window.innerHeight;
+      // Keep the whole keyboard within the viewport. The tiles-row
+      // floor only constrains the DEFAULT spawn position — once the
+      // user is actively dragging, they can place it anywhere on
+      // screen, including well below the tiles, down to the actual
+      // bottom edge of the viewport.
+      const bottomLimit = window.innerHeight - 4;
 
       let newLeft = startLeft + dx;
       let newTop = startTop + dy;
 
       newLeft = Math.max(4, Math.min(newLeft, window.innerWidth - rect.width - 4));
-      newTop = Math.max(4, Math.min(newTop, floorY - rect.height));
+      newTop = Math.max(4, Math.min(newTop, bottomLimit - rect.height));
 
       kb.style.left = `${newLeft}px`;
       kb.style.top = `${newTop}px`;
@@ -287,6 +293,14 @@
       kb.classList.remove('is-dragging');
       handle.releasePointerCapture && handle.releasePointerCapture(e.pointerId);
       setTimeout(() => { suppressOutsideClick = false; }, 50);
+
+      const rect = kb.getBoundingClientRect();
+      savedLayout = {
+        ...(savedLayout || {}),
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+      };
     }
 
     handle.addEventListener('pointerdown', onPointerDown);
@@ -334,15 +348,14 @@
       );
       kb.style.setProperty('--touch-kb-scale', scale);
 
-      // Keep the bottom edge off the tiles floor after a height change
-      // from font scaling — re-clamp top if needed.
-      const tiles = document.querySelector('.tiles');
-      if (tiles) {
-        const floorY = tiles.getBoundingClientRect().top - 18;
-        const rect = kb.getBoundingClientRect();
-        if (rect.bottom > floorY) {
-          kb.style.top = `${Math.max(4, floorY - rect.height)}px`;
-        }
+      // Keep the bottom edge within the viewport after a height change
+      // from font scaling — re-clamp top if needed. Uses the actual
+      // viewport bottom, not the tiles row, since the user may have
+      // deliberately resized while positioned below the tiles.
+      const rect = kb.getBoundingClientRect();
+      const bottomLimit = window.innerHeight - 4;
+      if (rect.bottom > bottomLimit) {
+        kb.style.top = `${Math.max(4, bottomLimit - rect.height)}px`;
       }
     }
 
@@ -351,12 +364,41 @@
       kb.classList.remove('is-resizing');
       grip.releasePointerCapture && grip.releasePointerCapture(e.pointerId);
       setTimeout(() => { suppressOutsideClick = false; }, 50);
+
+      const rect = kb.getBoundingClientRect();
+      const currentScale = parseFloat(kb.style.getPropertyValue('--touch-kb-scale')) || 1;
+      savedLayout = {
+        ...(savedLayout || {}),
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        scale: currentScale,
+      };
     }
 
     grip.addEventListener('pointerdown', onPointerDown);
     grip.addEventListener('pointermove', onPointerMove);
     grip.addEventListener('pointerup', onPointerUp);
     grip.addEventListener('pointercancel', onPointerUp);
+  }
+
+  function applyLayout(kb) {
+    if (savedLayout) {
+      // Restore exactly where/how the user last left it.
+      kb.style.left = `${savedLayout.left}px`;
+      kb.style.top = `${savedLayout.top}px`;
+      kb.style.width = `${savedLayout.width}px`;
+      if (savedLayout.scale) {
+        kb.style.setProperty('--touch-kb-scale', savedLayout.scale);
+      } else {
+        kb.style.removeProperty('--touch-kb-scale');
+      }
+    } else {
+      // First time ever opening (or nothing remembered yet) — use
+      // the original centered/clears-the-tiles default.
+      kb.style.removeProperty('--touch-kb-scale');
+      resetToDefaultPosition(kb);
+    }
   }
 
   function openKeyboard() {
@@ -367,10 +409,9 @@
     currentPage = 'letters';
     isShiftActive = false;
     kb.hidden = false;
-    kb.style.removeProperty('--touch-kb-scale'); // reset any prior resize scale too
     render();
     requestAnimationFrame(() => {
-      resetToDefaultPosition(kb); // always start from the default layout on open, per spec
+      applyLayout(kb);
       kb.classList.add('is-open');
     });
   }

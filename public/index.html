@@ -83,20 +83,27 @@
       </div>
     </div>
 
-    <!-- Custom on-screen keyboard — used on touch devices instead of
-         the OS keyboard, so the page never zooms/scrolls to keep a
-         native input in view. Built/shown only via JS. Draggable via
-         the handle bar, resizable via the corner grip; both default
-         to the original centered position/size on every open. -->
-    <div class="touch-keyboard" id="touch-keyboard" hidden>
-      <div class="touch-keyboard__handle" id="touch-keyboard-handle" aria-hidden="true">
-        <span class="touch-keyboard__handle-bar"></span>
-      </div>
-      <div class="touch-keyboard__rows" id="touch-keyboard-rows"></div>
-      <div class="touch-keyboard__resize-grip" id="touch-keyboard-resize" aria-hidden="true"></div>
-    </div>
-
   </main>
+
+  <!-- Custom on-screen keyboard — used on touch devices instead of
+       the OS keyboard, so the page never zooms/scrolls to keep a
+       native input in view. Built/shown only via JS. Draggable via
+       the handle bar, resizable via the corner grip; both default
+       to the original centered position/size on first open, then
+       remember the user's last position/size for the rest of the
+       session. Deliberately kept OUTSIDE <main class="stage"> — that
+       element has its own CSS transform (the optical-centering
+       nudge), and any transformed ancestor becomes a new containing
+       block for position:fixed descendants, which was throwing off
+       this element's actual on-screen position relative to its own
+       inline left/top values. -->
+  <div class="touch-keyboard" id="touch-keyboard" hidden>
+    <div class="touch-keyboard__handle" id="touch-keyboard-handle" aria-hidden="true">
+      <span class="touch-keyboard__handle-bar"></span>
+    </div>
+    <div class="touch-keyboard__rows" id="touch-keyboard-rows"></div>
+    <div class="touch-keyboard__resize-grip" id="touch-keyboard-resize" aria-hidden="true"></div>
+  </div>
 
   <!-- Tile detail popup -->
   <div class="popup" id="tile-popup" hidden>
