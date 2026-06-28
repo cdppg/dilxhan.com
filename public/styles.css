@@ -24,6 +24,8 @@
   --scene-water-1: #A8D8D8;
   --scene-water-2: #6FB6C2;
   --scene-water-surface: #C5E8E4;
+  --scene-bubble-color: #FFFFFF;
+  --scene-vapor-color: #FFFFFF;
 
   --font-display: 'Fraunces', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
@@ -51,6 +53,14 @@ html[data-theme="dark"] {
   --scene-sky-2: #2A130C;
   --scene-creature: #6B2A18;
   --scene-ember-color: #FF8A4C;
+
+  /* Water-vessel hero concept (new) — dark mode: boiling */
+  --scene-air-bg: #2E2622;
+  --scene-water-1: #2E5A66;
+  --scene-water-2: #16323A;
+  --scene-water-surface: #4A7E8C;
+  --scene-bubble-color: #8FCAD4;
+  --scene-vapor-color: #C9DEE0;
 }
 
 * {
@@ -122,7 +132,8 @@ body {
 }
 
 .hero__text-path,
-.hero__text-fallback {
+.hero__text-fallback,
+.hero__text-outline {
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 200px;
@@ -133,6 +144,15 @@ body {
 .hero__text-fallback {
   fill: var(--text);
   opacity: 0; /* hidden once scene renders; safety fallback only */
+}
+
+.hero__text-outline {
+  fill: none;
+  stroke: var(--scene-water-surface, var(--text));
+  stroke-width: 1.5;
+  opacity: 0.5;
+  pointer-events: none;
+  transition: stroke var(--transition-theme);
 }
 
 .hero__sky-stop-1 {
@@ -163,6 +183,15 @@ body {
 
 .scene-ember {
   fill: var(--scene-ember-color);
+}
+
+.scene-bubble {
+  fill: var(--scene-bubble-color, #FFFFFF);
+  opacity: 0.55;
+}
+
+.scene-vapor {
+  fill: var(--scene-vapor-color, #FFFFFF);
 }
 
 /* ---------- Socials ---------- */
