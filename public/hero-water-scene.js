@@ -77,13 +77,30 @@
   // This is what makes a mid-flight theme reversal "just work" later
   // without special-casing it: flip targetLevel, existing particles
   // keep their position and simply get re-tagged with new behavior.
+  //
+  // level is 0 (empty) .. 100 (full). "Full" maps to 60% of the
+  // letterform height (FULL_LEVEL_RATIO below) — not the very top —
+  // so the wave always has visible headroom to move without
+  // clipping against the top of the letters.
 
-  let level = 50; // 0 (empty) .. 100 (full) — starts half-filled, per spec
-  let targetLevel = 50; // dark mode -> 0, light mode -> 100 (stage 4+)
+  const FULL_LEVEL_RATIO = 0.6; // "full" = 60% of letter height, per spec
+
+  let level = 100; // starts FULL (was half — now half is just a waypoint while draining)
+  let targetLevel = 100;
   let isDarkMode = false;
 
-  const DRAIN_RATE = 4; // level units per second while heading toward empty
-  const FILL_RATE = 6; // level units per second while heading toward full (slightly faster than draining — refill should feel responsive)
+  // ~25-30s full cycle: draining 100->0 in ~27s, refilling 0->100 in
+  // ~24s (refill slightly brisker than draining still feels right,
+  // just both much slower than the original pacing).
+  const DRAIN_RATE = 100 / 27; // level units per second while heading toward empty
+  const FILL_RATE = 100 / 24; // level units per second while heading toward full
+
+  function levelToFillRatio(lvl) {
+    // Converts the 0-100 level scale to an actual fill ratio of the
+    // letter height — level=100 maps to FULL_LEVEL_RATIO (0.6), not
+    // 1.0, since "full" deliberately leaves headroom for the wave.
+    return (lvl / 100) * FULL_LEVEL_RATIO;
+  }
 
   let bubbles = [];
   let vapors = [];
@@ -107,7 +124,7 @@
     const container = document.getElementById('hero-scene-elements');
     if (!container) return;
 
-    const waterTopY = SCENE_Y + SCENE_H * (1 - level / 100);
+    const waterTopY = SCENE_Y + SCENE_H * (1 - levelToFillRatio(level));
     const bottomY = SCENE_Y + SCENE_H;
     if (bottomY - waterTopY < 4) return; // not enough water depth to bother
 
@@ -134,32 +151,49 @@
   // fully escapes represents a small amount of water leaving — this
   // is what actually drives `level` down while boiling (not a fixed
   // timer), so the drain rate naturally reflects how much is boiling.
+  //
+  // Visually, each "vapor" is a small cluster of 2-3 soft, blurred,
+  // overlapping circles (a "puff") rather than one hard-edged dot —
+  // and the puff grows for its first moments after a bubble pops,
+  // like mist actually forming, instead of snapping to full size.
 
-  function createVaporEl() {
-    const el = document.createElementNS(NS, 'circle');
-    el.setAttribute('class', 'scene-vapor');
-    return el;
+  function createVaporPuffEl() {
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'scene-vapor-puff');
+    const blobCount = 2 + Math.floor(Math.random() * 2); // 2-3 blobs
+    const blobs = [];
+    for (let i = 0; i < blobCount; i++) {
+      const circle = document.createElementNS(NS, 'circle');
+      circle.setAttribute('class', 'scene-vapor');
+      g.appendChild(circle);
+      blobs.push({
+        el: circle,
+        offsetX: randRange(-3, 3),
+        offsetY: randRange(-2, 2),
+        rBase: randRange(2.5, 5),
+      });
+    }
+    return { g, blobs };
   }
 
   function spawnVapor(x, y) {
     const container = document.getElementById('hero-scene-elements');
     if (!container) return;
 
-    const el = createVaporEl();
-    const r = randRange(2.5, 5.5);
-    el.setAttribute('r', r);
-    container.appendChild(el);
+    const { g, blobs } = createVaporPuffEl();
+    container.appendChild(g);
 
     vapors.push({
-      el,
+      g,
+      blobs,
       x,
       y,
-      r,
       state: 'rising', // 'rising' | 'condensing' — condensing arrives in stage 5 (reversal)
-      riseSpeed: randRange(14, 24),
+      riseSpeed: randRange(11, 19),
       drift: randRange(-8, 8),
       age: 0,
-      maxAge: randRange(1.8, 2.8), // seconds before fully dissipated
+      growDuration: randRange(0.35, 0.55), // mist "forming" window right after spawn
+      maxAge: randRange(2.2, 3.2), // seconds before fully dissipated
     });
   }
 
@@ -205,7 +239,7 @@
     wavePhase += dt * effectiveWaveSpeed;
 
     const waterEl = document.getElementById('hero-water-body');
-    const levelRatio = level / 100;
+    const levelRatio = levelToFillRatio(level);
     const waterTopY = SCENE_Y + SCENE_H * (1 - levelRatio);
     if (waterEl) {
       const effectiveAmplitudeRatio = prefersReducedMotion
@@ -248,7 +282,7 @@
       }
     }
 
-    // ---- update vapor: rise and fade while in 'rising' state ----
+    // ---- update vapor: grow in, rise and drift, then fade while in 'rising' state ----
     for (let i = vapors.length - 1; i >= 0; i--) {
       const v = vapors[i];
       v.age += dt;
@@ -256,14 +290,25 @@
       if (v.state === 'rising') {
         v.y -= v.riseSpeed * dt;
         v.x += Math.sin(v.age * 2.2) * v.drift * dt;
+
         const lifeRatio = v.age / v.maxAge;
-        const opacity = lifeRatio < 0.15 ? lifeRatio / 0.15 : 1 - (lifeRatio - 0.15) / 0.85;
-        v.el.setAttribute('cx', v.x);
-        v.el.setAttribute('cy', v.y);
-        v.el.setAttribute('opacity', Math.max(0, opacity * 0.7));
+        const fadeOpacity = lifeRatio < 0.15 ? lifeRatio / 0.15 : 1 - (lifeRatio - 0.15) / 0.85;
+        // Mist "forming" — blobs grow from a small fraction of their
+        // base size up to full size over growDuration, instead of
+        // snapping in at full size the instant a bubble pops.
+        const growRatio = Math.min(v.age / v.growDuration, 1);
+        const growScale = 0.3 + growRatio * 0.7;
+
+        v.g.setAttribute('transform', `translate(${v.x}, ${v.y})`);
+        v.blobs.forEach((blob) => {
+          blob.el.setAttribute('cx', blob.offsetX);
+          blob.el.setAttribute('cy', blob.offsetY);
+          blob.el.setAttribute('r', blob.rBase * growScale);
+          blob.el.setAttribute('opacity', Math.max(0, fadeOpacity * 0.6));
+        });
 
         if (v.age >= v.maxAge) {
-          v.el.remove();
+          v.g.remove();
           vapors.splice(i, 1);
         }
       }

@@ -190,6 +190,10 @@ body {
   opacity: 0.55;
 }
 
+.scene-vapor-puff {
+  filter: url(#hero-vapor-blur);
+}
+
 .scene-vapor {
   fill: var(--scene-vapor-color, #FFFFFF);
 }
