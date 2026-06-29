@@ -83,7 +83,7 @@
   // so the wave always has visible headroom to move without
   // clipping against the top of the letters.
 
-  const FULL_LEVEL_RATIO = 0.6; // "full" = 60% of letter height, per spec
+  const FULL_LEVEL_RATIO = 0.45; // "full" = 45% of letter height, per spec
 
   let level = 100; // starts FULL (was half — now half is just a waypoint while draining)
   let targetLevel = 100;
