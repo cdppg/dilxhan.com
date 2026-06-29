@@ -6,7 +6,7 @@
 
 :root {
   /* ---- Light theme (default) — thriving forest ---- */
-  --bg: #FAF8F3;
+  --bg: #EAF4F2;
   --text: #1A1F1B;
   --text-muted: #5A5F58;
   --accent: #2D5E3F;       /* forest green */
@@ -20,7 +20,7 @@
   --scene-ember-color: #C9472B;
 
   /* Water-vessel hero concept (new) */
-  --scene-air-bg: #81fbc42e;
+  --scene-air-bg: #FAF8F3;
   --scene-water-1: #A8D8D8;
   --scene-water-2: #6FB6C2;
   --scene-water-surface: #C5E8E4;
