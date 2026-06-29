@@ -20,7 +20,7 @@
   --scene-ember-color: #C9472B;
 
   /* Water-vessel hero concept (new) */
-  --scene-air-bg: #EAF4F2;
+  --scene-air-bg: #C9E4E0;
   --scene-water-1: #A8D8D8;
   --scene-water-2: #6FB6C2;
   --scene-water-surface: #C5E8E4;
@@ -132,8 +132,7 @@ body {
 }
 
 .hero__text-path,
-.hero__text-fallback,
-.hero__text-outline {
+.hero__text-fallback {
   font-family: var(--font-display);
   font-weight: 900;
   font-size: 200px;
@@ -144,15 +143,6 @@ body {
 .hero__text-fallback {
   fill: var(--text);
   opacity: 0; /* hidden once scene renders; safety fallback only */
-}
-
-.hero__text-outline {
-  fill: none;
-  stroke: var(--scene-water-surface, var(--text));
-  stroke-width: 1.5;
-  opacity: 0.5;
-  pointer-events: none;
-  transition: stroke var(--transition-theme);
 }
 
 .hero__sky-stop-1 {

@@ -89,10 +89,9 @@
   let targetLevel = 100;
   let isDarkMode = false;
 
-  // ~25-30s full cycle: draining 100->0 in ~27s, refilling 0->100 in
-  // ~24s (refill slightly brisker than draining still feels right,
-  // just both much slower than the original pacing).
-  const DRAIN_RATE = 100 / 27; // level units per second while heading toward empty
+  // Draining slowed further per feedback — now ~38s to fully drain.
+  // Fill rate left as-is (refill should still feel responsive).
+  const DRAIN_RATE = 100 / 38; // level units per second while heading toward empty
   const FILL_RATE = 100 / 24; // level units per second while heading toward full
 
   function levelToFillRatio(lvl) {
@@ -206,9 +205,9 @@
   let lastWaterTopY = null;
 
   const IDLE_AMPLITUDE_RATIO = 0.018;
-  const BOIL_AMPLITUDE_RATIO = 0.055; // rougher surface while actively draining
+  const BOIL_AMPLITUDE_RATIO = 0.04; // rougher than idle, but less aggressive than before
   const IDLE_WAVE_SPEED = 0.6;
-  const BOIL_WAVE_SPEED = 2.4;
+  const BOIL_WAVE_SPEED = 1.7;
 
   function currentBoilIntensity() {
     // 0 when calm/idle, ramps up while level is actively heading
@@ -218,7 +217,7 @@
     // target reverses mid-boil, instead of needing a special case.
     if (targetLevel >= level) return 0;
     const gap = level - targetLevel;
-    return Math.min(gap / 30, 1); // ramps to full intensity over a 30-unit gap
+    return Math.min(gap / 45, 1); // ramps more gradually than before (was /30)
   }
 
   function renderFrame(now) {
@@ -256,7 +255,7 @@
     // show a static full glass), but the busy bubble/vapor particle
     // motion is skipped for users who've asked to minimize it.
     if (!prefersReducedMotion && boilIntensity > 0.02) {
-      bubbleSpawnAccumulator += dt * boilIntensity * 14; // up to ~14/sec at full intensity
+      bubbleSpawnAccumulator += dt * boilIntensity * 9; // up to ~9/sec at full intensity (was 14)
       while (bubbleSpawnAccumulator >= 1) {
         spawnBubble();
         bubbleSpawnAccumulator -= 1;
