@@ -64,6 +64,13 @@
         <!-- Outline removed — empty-state visibility now handled via
              the air-bg color contrast directly (see --scene-air-bg). -->
       </svg>
+
+      <!-- Refill icon — appears only when the water-vessel hero is
+           empty in dark mode; tapping it starts a manual refill.
+           Shown/hidden entirely via hero-water-scene.js. -->
+      <button type="button" class="hero__refill-icon" id="hero-refill-icon" aria-label="Refill">
+        <svg viewBox="0 0 24 24"><path d="M12 4v10M12 14l-4-4M12 14l4-4M5 18h14"/></svg>
+      </button>
     </section>
 
     <!-- Socials -->

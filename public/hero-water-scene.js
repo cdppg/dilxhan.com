@@ -88,6 +88,9 @@
   let level = 100; // starts FULL (was half — now half is just a waypoint while draining)
   let targetLevel = 100;
   let isDarkMode = false;
+  let isManualRefilling = false; // true while a tapped refill is actively pulling level back up
+
+  const EMPTY_THRESHOLD = 3; // level at/below this counts as "empty enough" to show the refill icon
 
   // Draining slowed further per feedback — now ~38s to fully drain.
   // Fill rate left as-is (refill should still feel responsive).
@@ -231,6 +234,25 @@
       level = Math.min(targetLevel, level + FILL_RATE * dt);
     }
 
+    // ---- refill completion: once a manual refill reaches full,
+    // resume draining automatically if still in dark mode — this is
+    // what makes the empty/refill/boil loop repeat indefinitely
+    // while dark mode stays on, per spec. ----
+    if (isManualRefilling && level >= 100) {
+      isManualRefilling = false;
+      if (isDarkMode) {
+        targetLevel = 0; // boiling resumes
+      }
+    }
+
+    // ---- refill icon visibility: show once empty enough AND in
+    // dark mode AND not already mid-refill; hide otherwise. ----
+    if (isDarkMode && isNearEmpty() && !isManualRefilling) {
+      showRefillIcon();
+    } else {
+      hideRefillIcon();
+    }
+
     const boilIntensity = currentBoilIntensity();
     const effectiveWaveSpeed = prefersReducedMotion
       ? IDLE_WAVE_SPEED
@@ -326,12 +348,36 @@
 
   function setDarkMode(dark) {
     isDarkMode = dark;
+    isManualRefilling = false; // a real theme change supersedes any manual refill in progress
     targetLevel = dark ? 0 : 100;
   }
 
   function applyCurrentTheme() {
     const theme = document.documentElement.getAttribute('data-theme') || 'light';
     setDarkMode(theme === 'dark');
+  }
+
+  // ---------- Refill icon + manual refill trigger ----------
+
+  function showRefillIcon() {
+    const icon = document.getElementById('hero-refill-icon');
+    if (icon) icon.classList.add('is-visible');
+  }
+
+  function hideRefillIcon() {
+    const icon = document.getElementById('hero-refill-icon');
+    if (icon) icon.classList.remove('is-visible');
+  }
+
+  function isNearEmpty() {
+    return level <= EMPTY_THRESHOLD;
+  }
+
+  function triggerRefill() {
+    if (!isDarkMode || !isNearEmpty() || isManualRefilling) return;
+    isManualRefilling = true;
+    targetLevel = 100; // pull back up to full, calmly — refilling isn't a boil action
+    hideRefillIcon();
   }
 
   let prefersReducedMotion = false;
@@ -361,6 +407,11 @@
     // fully decoupled from app.js's internals.
     const observer = new MutationObserver(() => applyCurrentTheme());
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    const refillIcon = document.getElementById('hero-refill-icon');
+    if (refillIcon) {
+      refillIcon.addEventListener('click', triggerRefill);
+    }
   }
 
   if (document.readyState === 'loading') {
