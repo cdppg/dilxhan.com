@@ -83,14 +83,20 @@
   // so the wave always has visible headroom to move without
   // clipping against the top of the letters.
 
-  const FULL_LEVEL_RATIO = 0.6; // "full" = 60% of letter height, per spec
+  // ─── EASY TUNING ─────────────────────────────────────────────────────────
+  // How high the water sits when "full" (level = 100), expressed as a
+  // fraction of the visible letter height (0 = bottom of letters, 1 = top).
+  // 0.45 ≈ 45% up the letterforms — raise this number to fill higher,
+  // lower it to fill less. Changing only this constant is all you need.
+  const FULL_LEVEL_RATIO = 0.45;
+  // ─────────────────────────────────────────────────────────────────────────
 
   let level = 100; // starts FULL (was half — now half is just a waypoint while draining)
   let targetLevel = 100;
   let isDarkMode = false;
   let isManualRefilling = false; // true while a tapped refill is actively pulling level back up
 
-  const EMPTY_THRESHOLD = 3; // level at/below this counts as "empty enough" to show the refill icon
+  const EMPTY_THRESHOLD = 0; // show refill icon only once water has fully drained to the letter baseline
 
   // Draining slowed further per feedback — now ~38s to fully drain.
   // Fill rate left as-is (refill should still feel responsive).
