@@ -37,11 +37,11 @@
   // ---------- Wave path builder ----------
   // Builds a closed SVG path: a wavy line across the top (the water
   // surface), then straight down both sides and across the bottom,
-  // closing the shape. "levelRatio" is 0 (empty) to 1 (full) of the
+  // closing the shape. "waterTopY" is the Y position of the water
+  // surface in scene coordinates (already resolved from the current
   // scene height. "amplitude"/"phase" control the wave's shape.
 
-  function buildWaterPath(levelRatio, amplitude, phase) {
-    const waterTopY = SCENE_Y + SCENE_H * (1 - levelRatio);
+  function buildWaterPath(waterTopY, amplitude, phase) {
     const bottomY = SCENE_Y + SCENE_H;
     const left = SCENE_X;
     const right = SCENE_X + SCENE_W;
@@ -83,7 +83,7 @@
   // so the wave always has visible headroom to move without
   // clipping against the top of the letters.
 
-  const FULL_LEVEL_RATIO = 0.45; // "full" = 45% of letter height, per spec
+  const FULL_LEVEL_RATIO = 0.6; // "full" = 60% of letter height, per spec
 
   let level = 100; // starts FULL (was half — now half is just a waypoint while draining)
   let targetLevel = 100;
@@ -102,6 +102,27 @@
     // letter height — level=100 maps to FULL_LEVEL_RATIO (0.6), not
     // 1.0, since "full" deliberately leaves headroom for the wave.
     return (lvl / 100) * FULL_LEVEL_RATIO;
+  }
+
+  // None of the letters in "Dilxhan" (d, i, l, x, h, a, n) have a
+  // descender, so the clipped glyph shape's visible bottom edge sits
+  // right at the text baseline — y=195 of the 260-tall authored
+  // viewBox. Expressed as a ratio (195/260 = 0.75) so it stays correct
+  // even though SCENE_H is re-read dynamically from real font metrics
+  // on load/resize (the baseline is always at this same proportional
+  // position within the fitted viewBox).
+  const VISIBLE_BOTTOM_RATIO = 0.75;
+
+  function levelToWaterTopY() {
+    // level=0 now maps to the visible baseline itself (instantly
+    // visible the moment filling starts), and level=100 rises
+    // FULL_LEVEL_RATIO of the way up the VISIBLE glyph height (not
+    // the whole viewBox), so "full" still lands inside the
+    // letterforms with headroom near the top, same as before.
+    const visibleBottomY = SCENE_Y + SCENE_H * VISIBLE_BOTTOM_RATIO;
+    const visibleHeight = SCENE_H * VISIBLE_BOTTOM_RATIO;
+    const fillRatio = levelToFillRatio(level);
+    return visibleBottomY - visibleHeight * fillRatio;
   }
 
   let bubbles = [];
@@ -126,8 +147,8 @@
     const container = document.getElementById('hero-scene-elements');
     if (!container) return;
 
-    const waterTopY = SCENE_Y + SCENE_H * (1 - levelToFillRatio(level));
-    const bottomY = SCENE_Y + SCENE_H;
+    const waterTopY = levelToWaterTopY();
+    const bottomY = SCENE_Y + SCENE_H * VISIBLE_BOTTOM_RATIO; // visible baseline, not the absolute viewBox bottom
     if (bottomY - waterTopY < 4) return; // not enough water depth to bother
 
     const el = createBubbleEl();
@@ -260,14 +281,13 @@
     wavePhase += dt * effectiveWaveSpeed;
 
     const waterEl = document.getElementById('hero-water-body');
-    const levelRatio = levelToFillRatio(level);
-    const waterTopY = SCENE_Y + SCENE_H * (1 - levelRatio);
+    const waterTopY = levelToWaterTopY();
     if (waterEl) {
       const effectiveAmplitudeRatio = prefersReducedMotion
         ? IDLE_AMPLITUDE_RATIO
         : IDLE_AMPLITUDE_RATIO + (BOIL_AMPLITUDE_RATIO - IDLE_AMPLITUDE_RATIO) * boilIntensity;
       const amplitude = SCENE_H * effectiveAmplitudeRatio;
-      waterEl.setAttribute('d', buildWaterPath(levelRatio, amplitude, wavePhase));
+      waterEl.setAttribute('d', buildWaterPath(waterTopY, amplitude, wavePhase));
     }
     lastWaterTopY = waterTopY;
 
