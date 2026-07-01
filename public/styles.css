@@ -381,41 +381,83 @@ body {
 
 /* ---------- Theme toggle ---------- */
 
+/* ---- Theme toggle slider ---- */
 .theme-toggle {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: transparent;
+  background: none;
+  border: none;
+  padding: 0;
   cursor: pointer;
+  z-index: 20;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.theme-toggle__track {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 6px;
+  height: 32px;
+  box-sizing: border-box;
+  transition: border-color 200ms, background 200ms;
+  position: relative;
+}
+
+.theme-toggle:hover .theme-toggle__track,
+.theme-toggle:focus-visible .theme-toggle__track {
+  border-color: var(--border-strong);
+}
+
+.theme-toggle__label {
+  font-size: 13px;
+  line-height: 1;
+  user-select: none;
+  transition: opacity 200ms;
+}
+
+/* active side = full, inactive side = dimmed */
+.theme-toggle__label--light  { opacity: 1; }
+.theme-toggle__label--dark   { opacity: 0.35; }
+
+html[data-theme="dark"] .theme-toggle__label--light { opacity: 0.35; }
+html[data-theme="dark"] .theme-toggle__label--dark  { opacity: 1; }
+
+.theme-toggle__handle {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--text);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  transition: border-color 200ms, color 200ms;
-  z-index: 20;
+  flex-shrink: 0;
+  transition: background 200ms, transform 200ms;
+  /* slides: in light mode sits left (translateX 0), dark mode slides right */
+  transform: translateX(0);
 }
 
-.theme-toggle:hover,
-.theme-toggle:focus-visible {
-  border-color: var(--border-strong);
-  color: var(--text);
+html[data-theme="dark"] .theme-toggle__handle {
+  background: var(--text);
+  transform: translateX(0); /* position handled by flex order; no translate needed */
 }
 
-.theme-toggle__icon {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1.5px solid currentColor;
-  position: relative;
+.theme-toggle__drop {
+  width: 12px;
+  height: 12px;
+  fill: var(--bg);
   display: block;
+  /* in dark mode flip upside-down — drop becomes steam wisps / ♨ shape echo */
+  transition: transform 300ms;
+  transform: rotate(0deg);
 }
 
-html[data-theme="dark"] .theme-toggle__icon {
-  background: currentColor;
+html[data-theme="dark"] .theme-toggle__drop {
+  transform: rotate(180deg);
 }
 
 /* ---------- Time-aware greeting ---------- */

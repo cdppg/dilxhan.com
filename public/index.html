@@ -15,9 +15,24 @@
 </head>
 <body>
 
-  <!-- Theme toggle -->
-  <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark mode" title="Toggle theme (D)">
-    <span class="theme-toggle__icon" aria-hidden="true"></span>
+  <!-- Theme toggle: slider with 💧 (light) → ♨️ (dark) -->
+  <button
+    id="theme-toggle"
+    class="theme-toggle"
+    role="switch"
+    aria-checked="false"
+    aria-label="Toggle dark mode"
+    title="Toggle theme (D)"
+  >
+    <span class="theme-toggle__track" aria-hidden="true">
+      <span class="theme-toggle__label theme-toggle__label--light">💧</span>
+      <span class="theme-toggle__handle">
+        <svg class="theme-toggle__drop" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3.5C12 3.5 5.5 10.8 5.5 15.2C5.5 18.78 8.41 21.5 12 21.5C15.59 21.5 18.5 18.78 18.5 15.2C18.5 10.8 12 3.5 12 3.5Z"/>
+        </svg>
+      </span>
+      <span class="theme-toggle__label theme-toggle__label--dark">♨️</span>
+    </span>
   </button>
 
   <!-- Time-aware greeting, quiet, top-left -->

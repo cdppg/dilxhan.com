@@ -58,16 +58,16 @@ function getStoredTheme() {
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('dilxhan-theme', theme);
+  // keep the switch ARIA state in sync
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.setAttribute('aria-checked', theme === 'dark' ? 'true' : 'false');
 }
 
 function initTheme() {
+  // First-time visitors always get light mode — the water scene starts
+  // full and calm. The browser remembers whatever the user last picked.
   const stored = getStoredTheme();
-  if (stored) {
-    applyTheme(stored);
-  } else {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(prefersDark ? 'dark' : 'light');
-  }
+  applyTheme(stored || 'light');
 }
 
 function toggleTheme() {
