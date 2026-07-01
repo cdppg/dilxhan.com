@@ -381,7 +381,7 @@ body {
 
 /* ---------- Theme toggle ---------- */
 
-/* ---- Theme toggle slider ---- */
+/* ---- Theme toggle: segmented pill ---- */
 .theme-toggle {
   position: absolute;
   top: var(--space-3);
@@ -397,13 +397,11 @@ body {
 .theme-toggle__track {
   display: flex;
   align-items: center;
-  gap: 5px;
   background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: 999px;
-  padding: 3px 6px;
-  height: 32px;
-  box-sizing: border-box;
+  padding: 3px;
+  gap: 2px;
   transition: border-color 200ms, background 200ms;
   position: relative;
 }
@@ -413,52 +411,43 @@ body {
   border-color: var(--border-strong);
 }
 
-.theme-toggle__label {
-  font-size: 13px;
-  line-height: 1;
-  user-select: none;
-  transition: opacity 200ms;
-}
-
-/* active side = full, inactive side = dimmed */
-.theme-toggle__label--light  { opacity: 1; }
-.theme-toggle__label--dark   { opacity: 0.35; }
-
-html[data-theme="dark"] .theme-toggle__label--light { opacity: 0.35; }
-html[data-theme="dark"] .theme-toggle__label--dark  { opacity: 1; }
-
-.theme-toggle__handle {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--text);
+/* each pip is a zone — the active one gets the filled circle via ::before */
+.theme-toggle__pip {
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  transition: background 200ms, transform 200ms;
-  /* slides: in light mode sits left (translateX 0), dark mode slides right */
-  transform: translateX(0);
+  font-size: 14px;
+  border-radius: 50%;
+  position: relative;
+  transition: opacity 200ms;
+  user-select: none;
 }
 
-html[data-theme="dark"] .theme-toggle__handle {
+/* filled circle indicator behind the active pip */
+.theme-toggle__pip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
   background: var(--text);
-  transform: translateX(0); /* position handled by flex order; no translate needed */
+  opacity: 0;
+  transition: opacity 200ms;
+  z-index: -1;
 }
 
-.theme-toggle__drop {
-  width: 12px;
-  height: 12px;
-  fill: var(--bg);
-  display: block;
-  /* in dark mode flip upside-down — drop becomes steam wisps / ♨ shape echo */
-  transition: transform 300ms;
-  transform: rotate(0deg);
-}
+/* light mode: 💧 is active */
+.theme-toggle__pip--light { opacity: 1; }
+.theme-toggle__pip--light::before { opacity: 0.12; }
+.theme-toggle__pip--dark  { opacity: 0.4; }
+.theme-toggle__pip--dark::before  { opacity: 0; }
 
-html[data-theme="dark"] .theme-toggle__drop {
-  transform: rotate(180deg);
-}
+/* dark mode: ♨️ is active */
+html[data-theme="dark"] .theme-toggle__pip--light { opacity: 0.4; }
+html[data-theme="dark"] .theme-toggle__pip--light::before { opacity: 0; }
+html[data-theme="dark"] .theme-toggle__pip--dark  { opacity: 1; }
+html[data-theme="dark"] .theme-toggle__pip--dark::before  { opacity: 0.12; }
 
 /* ---------- Time-aware greeting ---------- */
 
