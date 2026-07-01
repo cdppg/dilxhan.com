@@ -286,14 +286,19 @@
           if (window.__dilxhan && typeof window.__dilxhan.pulseTile === 'function') {
             window.__dilxhan.pulseTile(data.dictionaryKey || word);
           }
+        } else if (data.type === 'animation') {
+          // Show the fact line briefly in the typewriter slot, then
+          // fire the animation after a short beat so both are visible.
+          showMissMessage(data.fact || '✦');
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('dilxhan:animation', {
+              detail: { key: data.animationKey },
+            }));
+          }, 600);
         } else {
           spawnFloatingReveal({ icon: data.icon, fact: data.fact, quote: data.quote });
         }
 
-        // Touch devices: close the custom keyboard so the reveal/pulse
-        // is actually visible, not hidden behind it. Misses deliberately
-        // don't fire this — keep the keyboard open so the user can
-        // immediately try another word without re-tapping the input.
         window.dispatchEvent(new CustomEvent('dilxhan:dictionary-hit'));
       } else {
         missStreak += 1;

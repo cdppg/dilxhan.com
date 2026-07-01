@@ -4,6 +4,7 @@
 // Response shapes:
 //   HIT (easter_egg):    { hit: true, type: "easter_egg", word, fact, quote, icon }
 //   HIT (hobby_project): { hit: true, type: "hobby_project", word, fact, quote, dictionaryKey }
+//   HIT (animation):     { hit: true, type: "animation", word, fact, animationKey }
 //   MISS:                { hit: false, message }
 //
 // MATCHING STRATEGY (important — this is what makes new projects
@@ -79,7 +80,7 @@ export async function onRequestGet(context) {
 
   // 2. Fall back to the easter-egg dictionary, matched the same way.
   const { results: entries } = await env.DB.prepare(
-    `SELECT id, word, fact, entry_type, icon FROM dictionary_entries WHERE is_visible = 1`
+    `SELECT id, word, fact, entry_type, icon, animation_key FROM dictionary_entries WHERE is_visible = 1`
   ).all();
 
   const entry = entries.find((e) => normalize(e.word) === normalizedInput);
@@ -98,6 +99,18 @@ export async function onRequestGet(context) {
 
   logLookup(env, context, normalizedInput, true, entry.entry_type);
 
+  // Animation entries don't need a quote — the fact line is shown
+  // briefly in the typewriter slot, then the animation fires.
+  if (entry.entry_type === 'animation') {
+    return Response.json({
+      hit: true,
+      type: 'animation',
+      word: entry.word,
+      fact: entry.fact,
+      animationKey: entry.animation_key,
+    });
+  }
+
   const { results: quotes } = await env.DB.prepare(
     `SELECT quote FROM dictionary_quotes WHERE dictionary_entry_id = ? ORDER BY RANDOM() LIMIT 1`
   ).bind(entry.id).all();
@@ -110,6 +123,6 @@ export async function onRequestGet(context) {
     word: entry.word,
     fact: entry.fact,
     quote,
-    icon: entry.icon, // only relevant for easter_egg type
+    icon: entry.icon,
   });
 }
