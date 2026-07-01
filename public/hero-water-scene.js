@@ -213,10 +213,6 @@
     const { g, blobs } = createVaporPuffEl();
     container.appendChild(g);
 
-    // If we're currently filling (light mode / mid-refill), spawn
-    // directly as 'condensing' — any vapor that forms during a fill
-    // should fall back down rather than continue upward.
-    const isFilling = targetLevel > level;
     const riseSpeed = randRange(11, 19);
 
     vapors.push({
@@ -224,10 +220,14 @@
       blobs,
       x,
       y,
-      state: isFilling ? 'condensing' : 'rising',
+      state: 'rising',
+      // shouldCondense: if we're in filling mode when this vapor is born,
+      // it will condense into a falling droplet at its apex instead of
+      // fading out — completing the "steam → water" visual loop.
+      shouldCondense: targetLevel > level,
       riseSpeed,
-      fallSpeed: riseSpeed * randRange(1.0, 1.4),  // used in condensing phase
-      condenseAge: 0,                               // separate clock for condensing phase
+      fallSpeed: riseSpeed * randRange(1.0, 1.4),
+      condenseAge: 0,
       drift: randRange(-8, 8),
       age: 0,
       growDuration: randRange(0.35, 0.55),
@@ -236,19 +236,22 @@
   }
 
   // ---------- Condensation ----------
-  // When the theme flips dark→light, steam mid-flight reverses:
-  // each rising vapor puff coalesces into a falling droplet and
-  // lands back on the water surface, closing the visual loop.
+  // The visual story: steam rises all the way to its apex (past the top
+  // of the letters), then condenses into a falling water droplet that
+  // lands back on the surface. Nothing reverses mid-flight — the vapor
+  // completes its rise, THEN falls back down.
+  //
+  // On dark→light we mark all in-flight vapors to condense at their
+  // apex, and shorten their remaining rise so they turn around within
+  // ~0.3s rather than waiting up to 3s for natural expiry.
 
   function condenseFlyingVapors() {
     for (const v of vapors) {
       if (v.state !== 'rising') continue;
-      v.state = 'condensing';
-      v.condenseAge = 0;
-      // Use a fresh fallSpeed if one wasn't set at spawn time
-      if (!v.fallSpeed) {
-        v.fallSpeed = v.riseSpeed * randRange(1.0, 1.4);
-      }
+      v.shouldCondense = true;
+      // Let the vapor finish its current upward arc — but cap remaining
+      // rise at 0.2–0.4s so all current steam condenses promptly.
+      v.maxAge = v.age + randRange(0.2, 0.4);
     }
   }
 
@@ -395,8 +398,15 @@
         });
 
         if (v.age >= v.maxAge) {
-          v.g.remove();
-          vapors.splice(i, 1);
+          if (v.shouldCondense) {
+            // Reached apex — coalesce into a falling droplet.
+            // y and x are already at the apex position.
+            v.state = 'condensing';
+            v.condenseAge = 0;
+          } else {
+            v.g.remove();
+            vapors.splice(i, 1);
+          }
         }
 
       } else if (v.state === 'condensing') {
@@ -416,10 +426,13 @@
 
         v.g.setAttribute('transform', `translate(${v.x}, ${v.y})`);
         v.blobs.forEach((blob) => {
-          const cx = blob.offsetX * (1 - cr);          // converge toward centre
+          const cx = blob.offsetX * (1 - cr);
           const cy = blob.offsetY * (1 - cr);
-          const r  = blob.rBase * (0.3 + (1 - cr) * 0.7); // shrink as cr rises
-          const opacity = 0.35 + cr * 0.45;            // wispy → more solid
+          const r  = blob.rBase * (0.3 + (1 - cr) * 0.7);
+          // Fade in from 0 as the droplet materializes, peaking at full
+          // opacity once coalesced. The vapor was nearly transparent at
+          // its apex, so this avoids a pop — the droplet grows out of nothing.
+          const opacity = cr * 0.82;
           blob.el.setAttribute('cx', cx);
           blob.el.setAttribute('cy', cy);
           blob.el.setAttribute('r',  Math.max(r, 1.2));
