@@ -133,7 +133,6 @@
 
   let bubbles = [];
   let vapors = [];
-  let ripples = []; // landing-ring particles spawned when a condensed droplet hits the water surface
 
   function randRange(min, max) {
     return min + Math.random() * (max - min);
@@ -213,60 +212,17 @@
     const { g, blobs } = createVaporPuffEl();
     container.appendChild(g);
 
-    const riseSpeed = randRange(11, 19);
-
     vapors.push({
       g,
       blobs,
       x,
       y,
-      state: 'rising',
-      // shouldCondense: if we're in filling mode when this vapor is born,
-      // it will condense into a falling droplet at its apex instead of
-      // fading out — completing the "steam → water" visual loop.
-      shouldCondense: targetLevel > level,
-      riseSpeed,
-      fallSpeed: riseSpeed * randRange(1.0, 1.4),
-      condenseAge: 0,
+      riseSpeed: randRange(11, 19),
       drift: randRange(-8, 8),
       age: 0,
       growDuration: randRange(0.35, 0.55),
       maxAge: randRange(2.2, 3.2),
     });
-  }
-
-  // ---------- Condensation ----------
-  // The visual story: steam rises all the way to its apex (past the top
-  // of the letters), then condenses into a falling water droplet that
-  // lands back on the surface. Nothing reverses mid-flight — the vapor
-  // completes its rise, THEN falls back down.
-  //
-  // On dark→light we mark all in-flight vapors to condense at their
-  // apex, and shorten their remaining rise so they turn around within
-  // ~0.3s rather than waiting up to 3s for natural expiry.
-
-  function condenseFlyingVapors() {
-    for (const v of vapors) {
-      if (v.state !== 'rising') continue;
-      v.shouldCondense = true;
-      // Let the vapor finish its current upward arc — but cap remaining
-      // rise at 0.2–0.4s so all current steam condenses promptly.
-      v.maxAge = v.age + randRange(0.2, 0.4);
-    }
-  }
-
-  // A landing ripple: an expanding, fading ring at the point where
-  // a condensed droplet hits the water surface.
-  function spawnRipple(x, y) {
-    const container = document.getElementById('hero-scene-elements');
-    if (!container) return;
-    const el = document.createElementNS(NS, 'circle');
-    el.setAttribute('fill', 'none');
-    el.setAttribute('class', 'scene-bubble'); // reuse the bubble color token
-    el.setAttribute('stroke-width', '1');
-    el.setAttribute('opacity', '0.5');
-    container.appendChild(el);
-    ripples.push({ el, x, y, age: 0, maxAge: randRange(0.4, 0.65) });
   }
 
   // ---------- Frame loop ----------
@@ -277,9 +233,9 @@
   let bubbleSpawnAccumulator = 0;
   let lastWaterTopY = null;
 
-  const IDLE_AMPLITUDE_RATIO = 0.018;
-  const BOIL_AMPLITUDE_RATIO = 0.04; // rougher than idle, but less aggressive than before
-  const IDLE_WAVE_SPEED = 0.6;
+  const IDLE_AMPLITUDE_RATIO = 0.026; // slightly more active in light mode (was 0.018)
+  const BOIL_AMPLITUDE_RATIO = 0.04;
+  const IDLE_WAVE_SPEED = 0.85;       // livelier idle pace (was 0.6)
   const BOIL_WAVE_SPEED = 1.7;
 
   function currentBoilIntensity() {
@@ -372,99 +328,28 @@
       }
     }
 
-    // ---- update vapor: rising puffs or condensing droplets ----
+    // ---- update vapor: rise, drift, fade ----
     for (let i = vapors.length - 1; i >= 0; i--) {
       const v = vapors[i];
       v.age += dt;
+      v.y -= v.riseSpeed * dt;
+      v.x += Math.sin(v.age * 2.2) * v.drift * dt;
 
-      if (v.state === 'rising') {
-        v.y -= v.riseSpeed * dt;
-        v.x += Math.sin(v.age * 2.2) * v.drift * dt;
+      const lifeRatio = v.age / v.maxAge;
+      const fadeOpacity = lifeRatio < 0.15 ? lifeRatio / 0.15 : 1 - (lifeRatio - 0.15) / 0.85;
+      const growScale = 0.3 + Math.min(v.age / v.growDuration, 1) * 0.7;
 
-        const lifeRatio = v.age / v.maxAge;
-        const fadeOpacity = lifeRatio < 0.15 ? lifeRatio / 0.15 : 1 - (lifeRatio - 0.15) / 0.85;
-        // Mist "forming" — blobs grow from a small fraction of their
-        // base size up to full size over growDuration, instead of
-        // snapping in at full size the instant a bubble pops.
-        const growRatio = Math.min(v.age / v.growDuration, 1);
-        const growScale = 0.3 + growRatio * 0.7;
+      v.g.setAttribute('transform', `translate(${v.x}, ${v.y})`);
+      v.blobs.forEach((blob) => {
+        blob.el.setAttribute('cx', blob.offsetX);
+        blob.el.setAttribute('cy', blob.offsetY);
+        blob.el.setAttribute('r', blob.rBase * growScale);
+        blob.el.setAttribute('opacity', Math.max(0, fadeOpacity * 0.6));
+      });
 
-        v.g.setAttribute('transform', `translate(${v.x}, ${v.y})`);
-        v.blobs.forEach((blob) => {
-          blob.el.setAttribute('cx', blob.offsetX);
-          blob.el.setAttribute('cy', blob.offsetY);
-          blob.el.setAttribute('r', blob.rBase * growScale);
-          blob.el.setAttribute('opacity', Math.max(0, fadeOpacity * 0.6));
-        });
-
-        if (v.age >= v.maxAge) {
-          if (v.shouldCondense) {
-            // Reached apex — coalesce into a falling droplet.
-            // y and x are already at the apex position.
-            v.state = 'condensing';
-            v.condenseAge = 0;
-          } else {
-            v.g.remove();
-            vapors.splice(i, 1);
-          }
-        }
-
-      } else if (v.state === 'condensing') {
-        // Condensing: the vapor coalesces into a falling droplet.
-        // condenseAge tracks how far through the coalesce animation we are,
-        // independently of v.age (which still tracks total lifespan for safety).
-        v.condenseAge += dt;
-
-        // Fall toward the water surface, gentle sway
-        v.y += v.fallSpeed * dt;
-        v.x += Math.sin(v.condenseAge * 1.4) * Math.abs(v.drift) * 0.25 * dt;
-
-        // Over ~0.6s the puff tightens: blobs converge and shrink to a
-        // compact droplet shape, opacity increases (steam → liquid).
-        const COALESCE_DUR = 0.6;
-        const cr = Math.min(v.condenseAge / COALESCE_DUR, 1); // 0→1
-
-        v.g.setAttribute('transform', `translate(${v.x}, ${v.y})`);
-        v.blobs.forEach((blob) => {
-          const cx = blob.offsetX * (1 - cr);
-          const cy = blob.offsetY * (1 - cr);
-          const r  = blob.rBase * (0.3 + (1 - cr) * 0.7);
-          // Fade in from 0 as the droplet materializes, peaking at full
-          // opacity once coalesced. The vapor was nearly transparent at
-          // its apex, so this avoids a pop — the droplet grows out of nothing.
-          const opacity = cr * 0.82;
-          blob.el.setAttribute('cx', cx);
-          blob.el.setAttribute('cy', cy);
-          blob.el.setAttribute('r',  Math.max(r, 1.2));
-          blob.el.setAttribute('opacity', opacity);
-        });
-
-        // Land when the droplet reaches the water surface
-        const landed = v.y >= waterTopY;
-        // Safety: remove if somehow still airborne after 8s
-        const timedOut = v.condenseAge > 8;
-
-        if (landed || timedOut) {
-          if (landed) spawnRipple(v.x, waterTopY);
-          v.g.remove();
-          vapors.splice(i, 1);
-        }
-      }
-    }
-
-    // ---- update ripples: expanding landing rings ----
-    for (let i = ripples.length - 1; i >= 0; i--) {
-      const r = ripples[i];
-      r.age += dt;
-      const ratio = r.age / r.maxAge;
-      r.el.setAttribute('cx', r.x);
-      r.el.setAttribute('cy', r.y);
-      r.el.setAttribute('r',  2 + ratio * 13);
-      r.el.setAttribute('stroke', 'currentColor');
-      r.el.setAttribute('opacity', (1 - ratio) * 0.45);
-      if (r.age >= r.maxAge) {
-        r.el.remove();
-        ripples.splice(i, 1);
+      if (v.age >= v.maxAge) {
+        v.g.remove();
+        vapors.splice(i, 1);
       }
     }
 
@@ -483,8 +368,6 @@
     isDarkMode = dark;
     isManualRefilling = false;
     targetLevel = dark ? 0 : 100;
-    // Dark→light: any steam mid-flight reverses into falling droplets
-    if (!dark) condenseFlyingVapors();
   }
 
   function applyCurrentTheme() {
