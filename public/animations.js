@@ -565,11 +565,16 @@
   // ════════════════════════════════════════════════════════════
   //  KITTY  — cat paw prints walk across the screen
   //
-  //  HOW THE CAT WALKS:
-  //  Cats use a diagonal gait: RF → LH → LF → RH (repeat).
-  //  Left/right paws are offset perpendicular to the walk direction.
-  //  A "hop" is just 2-3 steps with shorter stride and faster timing.
-  //  Each paw print stamps in, holds, then fades.
+  //  Setup:
+  //    1. Put your paw image at: public/assets/paw.png
+  //    2. Add D1 row:
+  //       INSERT INTO dictionary_entries (word, fact, entry_type, icon, animation_key)
+  //       VALUES ('kitty', 'pitter patter.', 'animation', 'bird', 'kitty');
+  //
+  //  HOW THE WALK WORKS:
+  //    Cats use a diagonal gait: RF → LH → LF → RH (repeat).
+  //    Left paws are mirrored horizontally from the PNG.
+  //    Hops = 2-3 rapid short steps, scattered randomly along the path.
   // ════════════════════════════════════════════════════════════
 
   ANIMATIONS['kitty'] = {
@@ -577,170 +582,143 @@
       const W = canvas.width, H = canvas.height;
 
       // ── Tuning knobs ─────────────────────────────────────────
+      const PAW_SIZE     = 24;   // ← px size of the paw PNG (width & height)
       const STRIDE       = 72;   // px between each step along the walk path
       const LATERAL      = 28;   // px left/right offset from the center line
       const STEP_DELAY   = 280;  // ms between each paw placement
       const HOP_STRIDE   = 32;   // px between steps during a hop (shorter = tighter)
-      const HOP_DELAY    = 140;  // ms between steps during a hop (faster)
-      const TOTAL_STEPS  = 22;   // how many paw prints before the cat leaves
-      const FADE_IN_MS   = 120;  // how fast each print stamps in
-      const HOLD_MS      = 1800; // how long the print stays solid
-      const FADE_OUT_MS  = 600;  // how long the print takes to fade
+      const HOP_DELAY    = 130;  // ms between steps during a hop (faster)
+      const TOTAL_STEPS  = 22;   // how many paw prints before the cat exits
+      const FADE_IN_MS   = 100;  // how fast each print stamps in
+      const HOLD_MS      = 1800; // how long each print stays fully visible
+      const FADE_OUT_MS  = 600;  // how long each print takes to fade out
       // ─────────────────────────────────────────────────────────
 
+      // ── Preload paw image ────────────────────────────────────
+      const pawImg = new Image();
+      pawImg.src = '/assets/paw.png';
+      pawImg.onload  = startAnimation;
+      pawImg.onerror = () => {
+        console.warn('[kitty] Could not load /assets/paw.png — check the path.');
+        done();
+      };
+
       // ── Draw one paw print ───────────────────────────────────
-      // x, y = center of the main pad
-      // angle = direction the cat is walking (radians)
-      // isLeft = true for left paw, false for right
+      // x, y   = center position
+      // angle  = direction the cat is walking (radians)
+      // isLeft = mirror the image for the left paw
       function drawPaw(x, y, angle, isLeft) {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(angle);
-        // Mirror for left vs right paw
         if (isLeft) ctx.scale(-1, 1);
-
-        // Main pad — large rounded oval
-        ctx.beginPath();
-        ctx.ellipse(0, 0, 9, 11, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 4 toe beans — arc of small ovals above the main pad
-        // Toes are arranged: outer-left, inner-left, inner-right, outer-right
-        const toes = [
-          { x: -11, y: -10, rx: 4.5, ry: 5.5, rot: -0.5 },
-          { x: -4,  y: -16, rx: 4.5, ry: 5.5, rot: -0.15 },
-          { x:  4,  y: -16, rx: 4.5, ry: 5.5, rot:  0.15 },
-          { x:  11, y: -10, rx: 4.5, ry: 5.5, rot:  0.5  },
-        ];
-        for (const t of toes) {
-          ctx.save();
-          ctx.translate(t.x, t.y);
-          ctx.rotate(t.rot);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, t.rx, t.ry, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
-
+        ctx.drawImage(pawImg, -PAW_SIZE / 2, -PAW_SIZE / 2, PAW_SIZE, PAW_SIZE);
         ctx.restore();
       }
 
-      // ── Build the step sequence ──────────────────────────────
-      // Decide walk direction, start position, and where hops happen
-      const walkAngle = randRange(-Math.PI * 0.25, Math.PI * 0.25)
-                      + (Math.random() < 0.5 ? 0 : Math.PI); // left→right or right→left
-      const startX = walkAngle > Math.PI / 2 || walkAngle < -Math.PI / 2
-        ? W + 40 : -40;
-      const startY = randRange(H * 0.2, H * 0.75);
+      function startAnimation() {
 
-      // Gait order: RF=0, LH=1, LF=2, RH=3 → isLeft: F,LH,T,F
-      // 0=RightFront, 1=LeftHind, 2=LeftFront, 3=RightHind
-      const isLeftPaw  = [false, true,  true,  false];
-      const lateralDir = [1,    -1,    -1,     1   ]; // +1 = right of travel
+        // ── Walk path ──────────────────────────────────────────
+        // Random direction: left→right or right→left with slight vertical drift
+        const goingRight = Math.random() < 0.5;
+        const walkAngle  = (goingRight ? 0 : Math.PI) + randRange(-0.3, 0.3);
+        const startX     = goingRight ? -PAW_SIZE : W + PAW_SIZE;
+        const startY     = randRange(H * 0.15, H * 0.8);
 
-      // Pick 2 random hops (set of 3 quick steps) during the walk
-      const hopStarts = new Set();
-      while (hopStarts.size < 2) {
-        hopStarts.add(randInt(4, TOTAL_STEPS - 6));
-      }
-      let inHop = 0; // countdown for hop steps remaining
+        // ── Gait pattern ───────────────────────────────────────
+        // 4-beat diagonal gait: Right Front, Left Hind, Left Front, Right Hind
+        // isLeftPaw:  RF=false, LH=true,  LF=true,  RH=false
+        // lateralDir: positive = right of travel, negative = left
+        const isLeftPaw  = [false, true,  true,  false];
+        const lateralDir = [1,    -1,     1,    -1    ];
 
-      const steps = [];
-      let cx = startX, cy = startY, gaitIndex = 0;
+        // ── Pick 2 random hop bursts ────────────────────────────
+        // A hop = 3 rapid short steps in a row, scattered mid-walk
+        const hopStarts = new Set();
+        while (hopStarts.size < 2) hopStarts.add(randInt(3, TOTAL_STEPS - 5));
+        let inHop = 0;
 
-      for (let i = 0; i < TOTAL_STEPS; i++) {
-        // Check if this step starts a hop
-        if (hopStarts.has(i)) inHop = 3;
+        // ── Build the full step list ────────────────────────────
+        const steps = [];
+        let cx = startX, cy = startY, gaitIndex = 0;
 
-        const stride  = inHop > 0 ? HOP_STRIDE  : STRIDE;
-        const delay   = inHop > 0 ? HOP_DELAY   : STEP_DELAY;
-        if (inHop > 0) inHop--;
+        for (let i = 0; i < TOTAL_STEPS; i++) {
+          if (hopStarts.has(i)) inHop = 3;
 
-        // Advance position along walk direction
-        cx += Math.cos(walkAngle) * stride;
-        cy += Math.sin(walkAngle) * stride;
+          const stride = inHop > 0 ? HOP_STRIDE : STRIDE;
+          const delay  = inHop > 0 ? HOP_DELAY  : STEP_DELAY;
+          if (inHop > 0) inHop--;
 
-        // Add lateral offset perpendicular to walk direction
-        const perpAngle = walkAngle + Math.PI / 2;
-        const lateralOffset = lateralDir[gaitIndex] * LATERAL;
-        const px = cx + Math.cos(perpAngle) * lateralOffset;
-        const py = cy + Math.sin(perpAngle) * lateralOffset;
+          // Advance along the walk direction
+          cx += Math.cos(walkAngle) * stride;
+          cy += Math.sin(walkAngle) * stride;
 
-        steps.push({
-          x:      px,
-          y:      py,
-          isLeft: isLeftPaw[gaitIndex],
-          delay,        // ms after previous step to place this one
-          age:    null, // filled in when the step is stamped (performance.now())
-        });
+          // Offset perpendicular to the walk (left/right paw separation)
+          const perpAngle = walkAngle + Math.PI / 2;
+          const px = cx + Math.cos(perpAngle) * lateralDir[gaitIndex] * LATERAL;
+          const py = cy + Math.sin(perpAngle) * lateralDir[gaitIndex] * LATERAL;
 
-        gaitIndex = (gaitIndex + 1) % 4;
-      }
+          steps.push({
+            x:      px,
+            y:      py,
+            isLeft: isLeftPaw[gaitIndex],
+            delay,
+            age:    null, // set by setTimeout when the step is stamped
+          });
 
-      // ── Animation loop ───────────────────────────────────────
-      // Steps are scheduled via setTimeout so each print appears
-      // at the right time. The rAF loop just redraws all active prints.
+          gaitIndex = (gaitIndex + 1) % 4;
+        }
 
-      const active = []; // prints currently visible on screen
-      let allScheduled = false;
-      let totalDelay = 0;
-      let allDone = false;
+        // ── Schedule each step ──────────────────────────────────
+        let totalDelay = 0;
+        for (const step of steps) {
+          totalDelay += step.delay;
+          const t = totalDelay;
+          setTimeout(() => { step.age = performance.now(); }, t);
+        }
 
-      // Schedule each step
-      for (const step of steps) {
-        totalDelay += step.delay;
-        const t = totalDelay;
-        setTimeout(() => {
-          step.age = performance.now();
-          active.push(step);
-        }, t);
-      }
+        // Total animation budget = all steps + last print's full life
+        const totalDuration = totalDelay + FADE_IN_MS + HOLD_MS + FADE_OUT_MS + 300;
+        let finished = false;
+        setTimeout(() => { finished = true; }, totalDuration);
 
-      // Mark when all steps + their hold + fade will be finished
-      const totalDuration = totalDelay + HOLD_MS + FADE_OUT_MS + 200;
-      setTimeout(() => { allDone = true; }, totalDuration);
+        // ── Frame loop ──────────────────────────────────────────
+        function frame() {
+          ctx.clearRect(0, 0, W, H);
+          const now = performance.now();
 
-      // Theme-aware paw color
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const PAW_COLOR = isDark
-        ? 'rgba(200, 200, 210, {a})'   // soft light grey in dark mode
-        : 'rgba(60,  50,  80,  {a})';  // warm dark in light mode
+          for (const step of steps) {
+            if (step.age === null) continue;
 
-      function frame() {
-        ctx.clearRect(0, 0, W, H);
-        const now = performance.now();
+            const elapsed = now - step.age;
+            let alpha;
 
-        for (const step of active) {
-          if (step.age === null) continue;
-          const elapsed = now - step.age;
+            if (elapsed < FADE_IN_MS) {
+              alpha = elapsed / FADE_IN_MS;                                   // stamping in
+            } else if (elapsed < FADE_IN_MS + HOLD_MS) {
+              alpha = 1;                                                       // holding
+            } else {
+              alpha = Math.max(0, 1 - (elapsed - FADE_IN_MS - HOLD_MS) / FADE_OUT_MS); // fading
+            }
 
-          let alpha;
-          if (elapsed < FADE_IN_MS) {
-            // Stamp in: quick scale isn't possible with just globalAlpha,
-            // but a fast fade-in reads as a "stamp" well enough
-            alpha = elapsed / FADE_IN_MS;
-          } else if (elapsed < FADE_IN_MS + HOLD_MS) {
-            alpha = 1;
-          } else {
-            const fadeElapsed = elapsed - FADE_IN_MS - HOLD_MS;
-            alpha = Math.max(0, 1 - fadeElapsed / FADE_OUT_MS);
+            if (alpha <= 0) continue;
+
+            ctx.globalAlpha = alpha;
+            // Rotate the paw to face the direction of travel
+            drawPaw(step.x, step.y, walkAngle + Math.PI / 2, step.isLeft);
           }
 
-          ctx.fillStyle = PAW_COLOR.replace('{a}', alpha.toFixed(3));
-          drawPaw(step.x, step.y, walkAngle + Math.PI / 2, step.isLeft);
+          ctx.globalAlpha = 1;
+
+          if (finished) {
+            done();
+          } else {
+            requestAnimationFrame(frame);
+          }
         }
 
-        if (allDone && active.every(s => {
-          if (s.age === null) return true;
-          return (performance.now() - s.age) > FADE_IN_MS + HOLD_MS + FADE_OUT_MS;
-        })) {
-          done();
-        } else {
-          requestAnimationFrame(frame);
-        }
+        requestAnimationFrame(frame);
       }
-
-      requestAnimationFrame(frame);
     },
   };
 
