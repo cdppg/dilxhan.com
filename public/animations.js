@@ -1029,22 +1029,21 @@
   };
 
   // ════════════════════════════════════════════════════════════
-  //  BOOPIE  — world map, pin drop, plane journey with food
-  //            collectibles, gold confetti landing
+  //  BOOPIE  — pin drop, sine wave flight path, food
+  //            collectibles one by one, gold confetti landing
   //
   //  Pure canvas — no assets needed.
-  //  Visible in both light and dark mode (dark navy map overlay).
-  //
-  //  Default route: Los Angeles → Sydney (spans the full screen).
-  //  To change destination: edit ORIGIN_* and DEST_* knobs.
+  //  Visible in both light and dark mode (dark overlay).
   //
   //  SEQUENCE:
-  //    0–800ms      Map + graticule fade in
-  //    800–1200ms   Origin pin drops with ripple rings
-  //    1400ms       Plane takes off, food icons appear
-  //    1400–5500ms  Plane flies, collects food icons
-  //    5500ms       Plane lands, gold confetti burst
-  //    6500–7300ms  Map fades away
+  //    0–600ms       Dark background fades in
+  //    400–1200ms    Dashed sine path reveals
+  //    500–1100ms    Origin pin drops
+  //    1000ms        Ripple rings burst from pin
+  //    2400ms        Plane takes off along sine path
+  //    2400–8900ms   Plane flies, food collected one by one
+  //    8900ms        Plane lands, gold confetti burst
+  //    10100–11000ms Everything fades out
   // ════════════════════════════════════════════════════════════
 
   ANIMATIONS['boopie'] = {
@@ -1052,45 +1051,32 @@
       const W = canvas.width, H = canvas.height;
 
       // ── Tuning knobs ─────────────────────────────────────────
-      const ORIGIN_LON  = -118.2; // Los Angeles
-      const ORIGIN_LAT  =   34.1;
-      const DEST_LON    =  151.2; // Sydney
-      const DEST_LAT    =  -33.9;
-      const ARC_HEIGHT  =   0.22; // flight arc height (fraction of H)
-      const PLANE_SIZE  = Math.min(W, H) * 0.038;
-      const PIN_SIZE    = Math.min(W, H) * 0.048;
-      const FOOD_SIZE   = Math.max(16, Math.min(W, H) * 0.048);
+      const ORIGIN_X   = W * 0.10;  // origin pin X
+      const DEST_X     = W * 0.90;  // destination pin X
+      const MID_Y      = H * 0.50;  // vertical centre of sine path
+      const AMPLITUDE  = H * 0.18;  // peak height above/below centre
+      const FREQ       = 3.5;       // full oscillations across the path
+      const FLIGHT_DUR = 6500;      // ms — raise to slow the plane down
+      const PIN_SIZE   = Math.min(W, H) * 0.048;
+      const FOOD_SIZE  = Math.max(18, Math.min(W, H) * 0.052);
+      const PLANE_SIZE = Math.max(20, Math.min(W, H) * 0.058);
       // ─────────────────────────────────────────────────────────
 
-      // ── Projection: lon/lat → canvas px ─────────────────────
-      function project(lon, lat) {
+      const originPx = [ORIGIN_X, MID_Y];
+      const destPx   = [DEST_X,   MID_Y];
+
+      // ── Sine path helpers ────────────────────────────────────
+      function sinePt(t) {
         return [
-          ((lon + 180) / 360) * W,
-          ((90  - lat) / 180) * H,
+          lerp(ORIGIN_X, DEST_X, t),
+          MID_Y + AMPLITUDE * Math.sin(t * FREQ * Math.PI * 2),
         ];
       }
 
-      const originPx = project(ORIGIN_LON, ORIGIN_LAT);
-      const destPx   = project(DEST_LON,   DEST_LAT);
-
-      // Quadratic bezier control point — midpoint elevated for arc
-      const ctrlPx = [
-        (originPx[0] + destPx[0]) / 2,
-        Math.min(originPx[1], destPx[1]) - H * ARC_HEIGHT,
-      ];
-
-      function bezierPt(t) {
-        const mt = 1 - t;
-        return [
-          mt*mt*originPx[0] + 2*mt*t*ctrlPx[0] + t*t*destPx[0],
-          mt*mt*originPx[1] + 2*mt*t*ctrlPx[1] + t*t*destPx[1],
-        ];
-      }
-
-      function bezierTangent(t) {
-        const mt = 1 - t;
-        const dx = 2*mt*(ctrlPx[0]-originPx[0]) + 2*t*(destPx[0]-ctrlPx[0]);
-        const dy = 2*mt*(ctrlPx[1]-originPx[1]) + 2*t*(destPx[1]-ctrlPx[1]);
+      function sineTangent(t) {
+        const dx = DEST_X - ORIGIN_X;
+        const dy = AMPLITUDE * FREQ * Math.PI * 2
+                * Math.cos(t * FREQ * Math.PI * 2);
         return Math.atan2(dy, dx);
       }
 
@@ -1100,65 +1086,35 @@
 
       // ── Timing ───────────────────────────────────────────────
       const T = {
-        mapFadeIn:   { start: 0,    dur: 800  },
-        pinDrop:     { start: 800,  dur: 500  },
-        ripple:        1200, // ms when ripple rings start
-        planeStart:    1400,
-        planeEnd:      5500,
-        confetti:      5500,
-        fadeOut:     { start: 6500, dur: 800  },
-        total:         7400,
+        bgFadeIn:   { start: 0,              dur: 600  },
+        pathReveal: { start: 400,            dur: 900  },
+        pinDrop:    { start: 500,            dur: 600  },
+        ripple:       1000,
+        planeStart:   2400,
+        planeEnd:     2400 + FLIGHT_DUR,
+        confetti:     2400 + FLIGHT_DUR,
+        fadeOut:    { start: 2400 + FLIGHT_DUR + 1200, dur: 900 },
+        total:        2400 + FLIGHT_DUR + 2300,
       };
 
-      // ── Continent outlines [lon, lat] ────────────────────────
-      const CONTINENTS = [
-        // North America
-        [[-167,60],[-130,55],[-126,48],[-118,32],[-105,20],[-83,8],
-        [-77,8],[-60,8],[-60,15],[-75,25],[-80,32],[-75,38],
-        [-67,47],[-55,52],[-65,60],[-80,65],[-100,70],
-        [-140,70],[-160,65],[-167,60]],
-        // South America
-        [[-80,12],[-60,12],[-50,5],[-35,-5],[-35,-20],[-40,-30],
-        [-52,-34],[-65,-55],[-68,-54],[-75,-50],[-75,-30],
-        [-70,-18],[-75,-5],[-80,0],[-80,12]],
-        // Europe
-        [[-10,36],[3,36],[15,38],[28,42],[30,52],[25,60],
-        [15,68],[5,58],[0,50],[-5,44],[-8,38],[-10,36]],
-        // Africa
-        [[-18,15],[0,15],[15,15],[42,12],[52,12],[50,30],
-        [36,22],[32,30],[34,37],[10,37],[0,30],[-18,15]],
-        // Asia
-        [[30,45],[35,37],[48,30],[58,22],[68,22],[80,8],
-        [100,5],[120,22],[135,35],[145,45],[140,55],
-        [130,65],[100,70],[80,75],[60,68],[40,68],
-        [30,65],[32,52],[30,45]],
-        // Australia
-        [[115,-35],[120,-30],[130,-15],[140,-15],[150,-25],
-        [153,-28],[148,-38],[138,-38],[130,-32],[115,-35]],
-        // Greenland
-        [[-55,60],[-20,60],[-15,70],[-25,83],[-45,83],[-60,75],[-55,60]],
-      ];
-
-      // ── Food icons along the bezier path ─────────────────────
-      // Offset alternates above/below the path so they don't overlap
+      // ── Food items — exactly on sine peaks and valleys ────────
+      // With FREQ=3.5: peaks at (0.25+n)/FREQ, valleys at (0.75+n)/FREQ
       const FOOD_DEFS = [
-        { emoji: '🍰', t: 0.12 },
-        { emoji: '🍕', t: 0.25 },
-        { emoji: '🌭', t: 0.38 },
-        { emoji: '🍝', t: 0.50 },
-        { emoji: '🍗', t: 0.62 },
-        { emoji: '🥖', t: 0.75 },
-        { emoji: '🍫', t: 0.88 },
+        { emoji: '🍰', t: 0.25 / FREQ }, // peak 1
+        { emoji: '🍕', t: 0.75 / FREQ }, // valley 1
+        { emoji: '🌭', t: 1.25 / FREQ }, // peak 2
+        { emoji: '🍝', t: 1.75 / FREQ }, // valley 2
+        { emoji: '🍗', t: 2.25 / FREQ }, // peak 3
+        { emoji: '🥖', t: 2.75 / FREQ }, // valley 3
+        { emoji: '🍫', t: 3.25 / FREQ }, // peak 4
       ];
 
-      const foods = FOOD_DEFS.map((f, i) => {
-        const [bx, by] = bezierPt(f.t);
-        const side     = i % 2 === 0 ? -1 : 1;
+      const foods = FOOD_DEFS.map(f => {
+        const [x, y] = sinePt(f.t);
         return {
           emoji:        f.emoji,
           t:            f.t,
-          x:            bx + side * FOOD_SIZE * 0.9,
-          y:            by + side * FOOD_SIZE * 0.9,
+          x, y,
           collected:    false,
           pulseAge:     0,
           collectScale: 1,
@@ -1167,231 +1123,205 @@
       });
 
       // ── Particle pools ────────────────────────────────────────
-      const smoke      = [];
-      const confetti   = [];
-      const ripples    = [];
-      let confettiDone = false;
+      const smoke    = [];
+      const confetti = [];
+      const ripples  = [];
+      let ripplesSpawned  = false;
+      let confettiSpawned = false;
+      let confettiDone    = false;
 
-      // ── Map drawing ───────────────────────────────────────────
-      function drawMap(alpha) {
-        ctx.save();
-        ctx.globalAlpha = alpha;
-
-        // Dark navy background — readable in light and dark mode
-        ctx.fillStyle = 'rgba(6, 12, 32, 0.92)';
+      // ── Background ────────────────────────────────────────────
+      function drawBg(alpha) {
+        ctx.fillStyle = `rgba(6, 10, 28, ${0.9 * alpha})`;
         ctx.fillRect(0, 0, W, H);
+      }
 
-        // Graticule
-        ctx.strokeStyle = 'rgba(45, 80, 130, 0.4)';
-        ctx.lineWidth   = 0.5;
-        for (let lon = -180; lon <= 180; lon += 30) {
-          const [x] = project(lon, 0);
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-        }
-        for (let lat = -90; lat <= 90; lat += 30) {
-          const [, y] = project(0, lat);
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-        }
+      // ── Dashed sine path ──────────────────────────────────────
+      // Draws the full path dimly, then re-draws the traced
+      // portion (behind the plane) slightly brighter.
+      function drawPath(revealAlpha, flightP) {
+        const steps = 140;
 
-        // Continents — filled shapes with outline
-        for (const continent of CONTINENTS) {
+        // Full path — dim
+        ctx.save();
+        ctx.setLineDash([5, 9]);
+        ctx.lineWidth   = 1.5;
+        ctx.strokeStyle = `rgba(255,255,255,${0.22 * revealAlpha})`;
+        ctx.beginPath();
+        const [sx, sy] = sinePt(0);
+        ctx.moveTo(sx, sy);
+        for (let i = 1; i <= steps; i++) {
+          const [px, py] = sinePt(i / steps);
+          ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+
+        // Traced portion — brighter
+        if (flightP > 0) {
+          ctx.strokeStyle = `rgba(255,255,255,${0.55 * revealAlpha})`;
           ctx.beginPath();
-          const [sx, sy] = project(...continent[0]);
-          ctx.moveTo(sx, sy);
-          for (let i = 1; i < continent.length; i++) {
-            const [x, y] = project(...continent[i]);
-            ctx.lineTo(x, y);
+          const [tx, ty] = sinePt(0);
+          ctx.moveTo(tx, ty);
+          const tracedSteps = Math.ceil(flightP * steps);
+          for (let i = 1; i <= tracedSteps; i++) {
+            const [px, py] = sinePt((i / steps));
+            ctx.lineTo(px, py);
           }
-          ctx.closePath();
-          ctx.fillStyle   = 'rgba(25, 58, 100, 0.82)';
-          ctx.strokeStyle = 'rgba(70, 130, 200, 0.55)';
-          ctx.lineWidth   = 1;
-          ctx.fill();
           ctx.stroke();
         }
 
+        ctx.setLineDash([]);
         ctx.restore();
       }
 
-      // ── Pin drawing ───────────────────────────────────────────
+      // ── Pin ───────────────────────────────────────────────────
       function drawPin(x, y, color, alpha, dropP) {
-        const p    = easeOut(dropP);
-        const fromY = y - H * 0.12;
-        const drawY = lerp(fromY, y, p);
-        // Squish on landing: briefly flattened when dropP just hit 1
-        const squish = dropP >= 1 ? 1 : 1;
+        const landed = easeOut(Math.min(1, dropP));
+        const drawY  = lerp(y - H * 0.15, y, landed);
 
         ctx.save();
-        ctx.globalAlpha = alpha * Math.min(1, dropP * 4);
+        ctx.globalAlpha = alpha * Math.min(1, dropP * 3);
         ctx.translate(x, drawY);
 
-        // Shadow
+        // Drop shadow
         ctx.beginPath();
-        ctx.ellipse(0, PIN_SIZE * 0.08, PIN_SIZE * 0.2 * squish, PIN_SIZE * 0.06 / squish, 0, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.ellipse(0, PIN_SIZE * 0.08,
+          PIN_SIZE * 0.18, PIN_SIZE * 0.055, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.fill();
 
-        // Point
+        // Tail
         ctx.beginPath();
-        ctx.moveTo(-PIN_SIZE * 0.18, -PIN_SIZE * 0.28);
-        ctx.lineTo(0, PIN_SIZE * 0.05);
-        ctx.lineTo(PIN_SIZE * 0.18, -PIN_SIZE * 0.28);
+        ctx.moveTo(-PIN_SIZE * 0.17, -PIN_SIZE * 0.3);
+        ctx.lineTo(0,                 PIN_SIZE * 0.06);
+        ctx.lineTo( PIN_SIZE * 0.17, -PIN_SIZE * 0.3);
         ctx.fillStyle = color;
         ctx.fill();
 
         // Circle head
         ctx.beginPath();
-        ctx.arc(0, -PIN_SIZE * 0.52, PIN_SIZE * 0.32, 0, Math.PI * 2);
+        ctx.arc(0, -PIN_SIZE * 0.54, PIN_SIZE * 0.33, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.lineWidth   = 1.5;
         ctx.stroke();
 
         // Inner dot
         ctx.beginPath();
-        ctx.arc(0, -PIN_SIZE * 0.52, PIN_SIZE * 0.1, 0, Math.PI * 2);
+        ctx.arc(0, -PIN_SIZE * 0.54, PIN_SIZE * 0.1, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
         ctx.fill();
 
         ctx.restore();
       }
 
-      // ── Ripple rings ──────────────────────────────────────────
+      // ── Ripples ───────────────────────────────────────────────
+      // 6 rings, staggered 160ms apart, large radius, thick→thin
       function spawnRipples(x, y) {
-        for (let i = 0; i < 3; i++) {
-          ripples.push({ x, y, born: performance.now() + i * 220,
-            maxAge: 700, color: '255,60,60' });
+        for (let i = 0; i < 6; i++) {
+          ripples.push({
+            x, y,
+            born:   performance.now() + i * 160,
+            maxAge: 1100,
+          });
         }
       }
 
-      function drawRipples(now) {
+      function drawRipples(absNow) {
         for (let i = ripples.length - 1; i >= 0; i--) {
           const r   = ripples[i];
-          const age = now - r.born;
+          const age = absNow - r.born;
           if (age < 0) continue;
-          const t = Math.min(1, age / r.maxAge);
+          const t      = Math.min(1, age / r.maxAge);
+          const radius = easeOut(t) * Math.min(W, H) * 0.20;
           ctx.beginPath();
-          ctx.arc(r.x, r.y, t * Math.min(W, H) * 0.065, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(${r.color},${(1 - t) * 0.65})`;
-          ctx.lineWidth   = 2;
+          ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(255,65,65,${(1 - t) * 0.85})`;
+          ctx.lineWidth   = lerp(4.5, 0.5, t);
           ctx.stroke();
           if (t >= 1) ripples.splice(i, 1);
         }
       }
 
-      // ── Plane ────────────────────────────────────────────────
-      function drawPlane(x, y, angle, alpha) {
-        const s = PLANE_SIZE;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.translate(x, y);
-        ctx.rotate(angle);
-
-        ctx.fillStyle = '#ffffff';
-
-        // Body
-        ctx.beginPath();
-        ctx.ellipse(0, 0, s * 0.95, s * 0.2, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Nose cone
-        ctx.beginPath();
-        ctx.moveTo(s * 0.95, 0);
-        ctx.lineTo(s * 1.15, s * 0.05);
-        ctx.lineTo(s * 1.15, -s * 0.05);
-        ctx.closePath();
-        ctx.fill();
-
-        // Wings
-        ctx.beginPath();
-        ctx.moveTo(s * 0.05, 0);
-        ctx.lineTo(-s * 0.28, -s * 0.52);
-        ctx.lineTo(-s * 0.48, -s * 0.52);
-        ctx.lineTo(-s * 0.32, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(s * 0.05, 0);
-        ctx.lineTo(-s * 0.28,  s * 0.52);
-        ctx.lineTo(-s * 0.48,  s * 0.52);
-        ctx.lineTo(-s * 0.32, 0);
-        ctx.closePath();
-        ctx.fill();
-
-        // Tail fin
-        ctx.beginPath();
-        ctx.moveTo(-s * 0.72, 0);
-        ctx.lineTo(-s * 0.95, -s * 0.32);
-        ctx.lineTo(-s * 0.62, -s * 0.08);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.restore();
-      }
-
       // ── Smoke trail ───────────────────────────────────────────
-      function updateSmoke(dt) {
+      function updateSmoke() {
         for (let i = smoke.length - 1; i >= 0; i--) {
           const p = smoke[i];
-          p.alpha -= 0.007;
-          p.r     += 0.25;
+          p.alpha -= 0.006;
+          p.r     += 0.22;
           p.x     += p.vx;
           p.y     += p.vy;
           if (p.alpha <= 0) { smoke.splice(i, 1); continue; }
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(180,185,210,${p.alpha})`;
+          ctx.fillStyle = `rgba(200,200,220,${p.alpha.toFixed(3)})`;
           ctx.fill();
         }
       }
 
-      // ── Food icons ────────────────────────────────────────────
-      function drawFood(food) {
-        if (food.collectAlpha <= 0) return;
+      // ── Plane emoji ───────────────────────────────────────────
+      function drawPlane(x, y, angle, alpha) {
         ctx.save();
-        ctx.globalAlpha = food.collectAlpha;
-        ctx.translate(food.x, food.y);
-        ctx.scale(food.collectScale, food.collectScale);
-        ctx.font          = `${FOOD_SIZE}px serif`;
+        ctx.globalAlpha   = alpha;
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.font          = `${PLANE_SIZE}px serif`;
         ctx.textAlign     = 'center';
         ctx.textBaseline  = 'middle';
+        ctx.fillText('✈️', 0, 0);
+        ctx.restore();
+      }
+
+      // ── Food emoji ────────────────────────────────────────────
+      function drawFood(food, overrideAlpha) {
+        const a = overrideAlpha !== undefined
+          ? overrideAlpha * food.collectAlpha
+          : food.collectAlpha;
+        if (a <= 0) return;
+        ctx.save();
+        ctx.globalAlpha  = a;
+        ctx.translate(food.x, food.y);
+        ctx.scale(food.collectScale, food.collectScale);
+        ctx.font         = `${FOOD_SIZE}px serif`;
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText(food.emoji, 0, 0);
         ctx.restore();
       }
 
       // ── Gold confetti ─────────────────────────────────────────
       function spawnConfetti(x, y) {
-        const GOLDS = ['#FFD700','#FFC200','#FFAA00','#FFE066','#FFEC99','#FF8C00'];
-        for (let i = 0; i < 90; i++) {
+        const GOLDS = [
+          '#FFD700','#FFC200','#FFAA00',
+          '#FFE066','#FFEC99','#FF8C00','#FFFACD',
+        ];
+        for (let i = 0; i < 110; i++) {
           const angle = randRange(0, Math.PI * 2);
-          const speed = randRange(2.5, 7);
+          const speed = randRange(2.5, 8.5);
           confetti.push({
             x, y,
             vx:    Math.cos(angle) * speed,
-            vy:    Math.sin(angle) * speed - randRange(2, 6),
+            vy:    Math.sin(angle) * speed - randRange(2, 7),
             color: randChoice(GOLDS),
             alpha: 1,
             rot:   randRange(0, Math.PI * 2),
-            rotV:  randRange(-0.1, 0.1),
+            rotV:  randRange(-0.12, 0.12),
             shape: Math.random() < 0.5 ? 'rect' : 'circle',
-            w:     randRange(6, 13),
-            h:     randRange(4, 8),
-            r:     randRange(3, 6),
+            w: randRange(6, 14), h: randRange(4, 9), r: randRange(3, 7),
           });
         }
       }
 
-      function updateConfetti(dt) {
+      function updateConfetti() {
         let alive = 0;
         for (let i = confetti.length - 1; i >= 0; i--) {
           const p = confetti[i];
-          p.vy    += 0.1;
-          p.x     += p.vx;
-          p.y     += p.vy;
-          p.rot   += p.rotV;
-          p.alpha  = Math.max(0, p.alpha - 0.007);
+          p.vy   += 0.1;
+          p.x    += p.vx;
+          p.y    += p.vy;
+          p.rot  += p.rotV;
+          p.alpha = Math.max(0, p.alpha - 0.006);
           if (p.alpha <= 0) { confetti.splice(i, 1); continue; }
           alive++;
           ctx.save();
@@ -1411,30 +1341,9 @@
         if (alive === 0) confettiDone = true;
       }
 
-      // ── Flight path trace ────────────────────────────────────
-      function drawPath(flightP) {
-        ctx.save();
-        ctx.setLineDash([4, 7]);
-        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-        ctx.lineWidth   = 1.5;
-        ctx.beginPath();
-        const [sx, sy] = bezierPt(0);
-        ctx.moveTo(sx, sy);
-        const steps = Math.ceil(flightP * 50);
-        for (let i = 1; i <= steps; i++) {
-          const [px, py] = bezierPt((i / 50) * flightP);
-          ctx.lineTo(px, py);
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
-
-      // ── Main frame loop ───────────────────────────────────────
-      let startTime   = null;
-      let lastTs      = null;
-      let ripplesSpawned   = false;
-      let confettiSpawned  = false;
+      // ── Frame loop ────────────────────────────────────────────
+      let startTime = null;
+      let lastTs    = null;
 
       function frame(ts) {
         if (!startTime) startTime = ts;
@@ -1444,95 +1353,107 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        // ── Map alpha (fade in then fade out) ──────────────────
-        const mapInP  = easeOut(prog(now, T.mapFadeIn.start, T.mapFadeIn.dur));
-        const mapOutP = easeIn (prog(now, T.fadeOut.start,   T.fadeOut.dur));
-        const mapA    = mapInP * (1 - mapOutP);
-        drawMap(mapA);
+        // Global alpha (fade in → hold → fade out)
+        const bgInP  = easeOut(prog(now, T.bgFadeIn.start, T.bgFadeIn.dur));
+        const bgOutP = easeIn (prog(now, T.fadeOut.start,  T.fadeOut.dur));
+        const globalA = bgInP * (1 - bgOutP);
 
-        // ── Pins ───────────────────────────────────────────────
-        // Destination pin — soft blue, fades in with map
-        if (mapA > 0.2) {
-          drawPin(destPx[0], destPx[1], '#4488ff',
-            Math.min(1, (mapA - 0.2) / 0.3), 1);
+        drawBg(globalA);
+
+        // Path
+        const pathRevealA = easeOut(prog(now, T.pathReveal.start, T.pathReveal.dur));
+        const flightP     = now >= T.planeStart
+          ? Math.min(1, (now - T.planeStart) / FLIGHT_DUR)
+          : 0;
+
+        if (pathRevealA > 0) {
+          drawPath(pathRevealA * globalA, flightP);
         }
 
-        // Origin pin — red, drops on cue
+        // Destination pin — soft blue, fades in with path
+        if (pathRevealA > 0.3) {
+          drawPin(
+            destPx[0], destPx[1], '#4488ff',
+            globalA * Math.min(1, (pathRevealA - 0.3) / 0.4),
+            1
+          );
+        }
+
+        // Origin pin drop
         const pinDropP = prog(now, T.pinDrop.start, T.pinDrop.dur);
         if (pinDropP > 0) {
-          drawPin(originPx[0], originPx[1], '#ff3333', mapA, pinDropP);
+          drawPin(originPx[0], originPx[1], '#ff3333', globalA, pinDropP);
         }
 
-        // ── Ripple rings after pin impact ──────────────────────
+        // Ripple rings (absolute time so stagger works across frames)
         if (now >= T.ripple && !ripplesSpawned) {
           spawnRipples(originPx[0], originPx[1]);
           ripplesSpawned = true;
         }
-        drawRipples(now + startTime);
+        drawRipples(ts);
 
-        // ── Plane + food + smoke ───────────────────────────────
+        // Plane + food + smoke
         if (now >= T.planeStart) {
-          const flightDur = T.planeEnd - T.planeStart;
-          const flightP   = Math.min(1, (now - T.planeStart) / flightDur);
+          const [px, py] = sinePt(flightP);
+          const angle    = sineTangent(flightP);
 
-          drawPath(flightP);
-
-          const [px, py] = bezierPt(flightP);
-          const angle    = bezierTangent(flightP);
-
-          // Spawn smoke from rear of plane
-          if (flightP < 1 && Math.random() < 0.45) {
+          // Smoke from rear of plane
+          if (flightP < 1 && Math.random() < 0.38) {
             smoke.push({
-              x:  px - Math.cos(angle) * PLANE_SIZE * 1.1,
-              y:  py - Math.sin(angle) * PLANE_SIZE * 1.1,
-              vx: (Math.random() - 0.5) * 0.4,
-              vy: (Math.random() - 0.5) * 0.4,
-              r:  randRange(1.5, 3.5),
-              alpha: 0.45,
+              x:  px - Math.cos(angle) * PLANE_SIZE * 0.55,
+              y:  py - Math.sin(angle) * PLANE_SIZE * 0.55,
+              vx: (Math.random() - 0.5) * 0.5,
+              vy: (Math.random() - 0.5) * 0.5,
+              r:  randRange(1.5, 3.2),
+              alpha: 0.4,
             });
           }
+          updateSmoke();
 
-          updateSmoke(dt);
-
-          // Food: show → pulse → collect as plane passes
+          // Food — collected strictly one by one as plane passes each t
           for (const food of foods) {
             if (flightP >= food.t && !food.collected) {
               food.collected = true;
               food.pulseAge  = 0;
             }
+
             if (!food.collected) {
-              // Subtle pulse as plane approaches within 0.08t
+              // Pulse gently as plane approaches within 0.07t
               const near = food.t - flightP;
-              if (near < 0.08 && near > 0) {
-                food.collectScale = 1 + 0.12 * Math.sin(now * 0.02);
+              if (near > 0 && near < 0.07) {
+                food.collectScale = 1 + 0.14 * Math.abs(Math.sin(now * 0.022));
+              } else {
+                food.collectScale = 1;
               }
-              drawFood(food);
+              drawFood(food, globalA);
             } else {
-              food.pulseAge     += dt;
-              food.collectScale  = 1 + easeOut(Math.min(1, food.pulseAge / 180)) * 0.55;
-              food.collectAlpha  = Math.max(0, 1 - food.pulseAge / 320);
+              // Burst: quick scale-up then fade out
+              food.pulseAge    += dt;
+              food.collectScale = 1 + easeOut(Math.min(1, food.pulseAge / 200)) * 0.75;
+              food.collectAlpha = Math.max(0, 1 - food.pulseAge / 380);
               drawFood(food);
             }
           }
 
-          // Plane (fade in at start, fade out when landing)
-          const planeA = flightP < 0.04
-            ? flightP / 0.04
+          // Plane on top of everything
+          const planeA = flightP < 0.03
+            ? flightP / 0.03
             : flightP > 0.97 ? (1 - flightP) / 0.03 : 1;
-          drawPlane(px, py, angle, planeA * (1 - mapOutP));
+          drawPlane(px, py, angle, planeA * (1 - bgOutP));
+
         } else {
-          // Show food icons before plane takes off (fade in with map)
-          for (const food of foods) drawFood(food);
+          // Before takeoff — show food faded with background
+          for (const food of foods) drawFood(food, globalA);
         }
 
-        // ── Gold confetti at landing ───────────────────────────
+        // Gold confetti at landing
         if (now >= T.confetti && !confettiSpawned) {
           spawnConfetti(destPx[0], destPx[1]);
           confettiSpawned = true;
         }
-        if (confettiSpawned) updateConfetti(dt);
+        if (confettiSpawned) updateConfetti();
 
-        // ── Finish ─────────────────────────────────────────────
+        // Finish
         if (now >= T.total && (confettiDone || confetti.length === 0)) {
           done();
         } else {
