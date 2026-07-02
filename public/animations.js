@@ -728,18 +728,15 @@
   //
   //  Pure canvas — no assets needed.
   //
-  //  Setup — add D1 row:
-  //    INSERT INTO dictionary_entries (word, fact, entry_type, icon, animation_key)
-  //    VALUES ('alien', 'they were here first.', 'animation', 'sparkle', 'alien');
-  //
   //  SEQUENCE:
-  //    0–800ms    UFO flies in from right, slows to hover
-  //    800–1400ms Screen pulses with colour washes
-  //    1400–2600ms Light ray extends down from UFO belly
-  //    2600–3800ms Alien descends inside the ray
-  //    3800–4400ms Alien scurries sideways into darkness
-  //    4400–5000ms Alien shrinks and fades into shadow
-  //    5000–5800ms Ray retracts, UFO flies back off screen
+  //    0–900ms     UFO flies in from right, slows to hover
+  //    750–1400ms  Screen pulses with colour washes
+  //    1300–2500ms Light ray extends down from UFO belly
+  //    2400–3800ms Alien descends inside the ray
+  //    3700–4350ms Alien scurries sideways into darkness
+  //    4350–5000ms Alien shrinks and fades into shadow
+  //    4800–5300ms Ray retracts
+  //    5000–5700ms UFO flies back off screen
   // ════════════════════════════════════════════════════════════
 
   ANIMATIONS['alien'] = {
@@ -747,52 +744,49 @@
       const W = canvas.width, H = canvas.height;
 
       // ── Tuning knobs ─────────────────────────────────────────
-      const UFO_Y          = H * 0.18;   // how high the UFO hovers
-      const UFO_W          = W * 0.18;   // UFO body width
-      const UFO_H          = UFO_W * 0.3;// UFO body height
-      const GROUND_Y       = H * 0.82;   // where the alien lands
-      const RAY_TOP_W      = UFO_W * 0.4;// beam width at UFO belly
-      const RAY_BOT_W      = UFO_W * 0.9;// beam width at ground
-      const ALIEN_H        = H * 0.09;   // alien body height
+      const UFO_Y     = H * 0.18;    // how high the UFO hovers
+      const UFO_W     = W * 0.18;    // UFO body width
+      const UFO_H     = UFO_W * 0.3; // UFO body height
+      const GROUND_Y  = H * 0.82;    // where the alien lands
+      const RAY_TOP_W = UFO_W * 0.4; // beam width at UFO belly
+      const RAY_BOT_W = UFO_W * 0.9; // beam width at ground
+      const ALIEN_H   = H * 0.09;    // alien body height (try H*0.12 for chunkier)
       // ─────────────────────────────────────────────────────────
 
-      const UFO_X = W * 0.48; // hover X (roughly centre)
+      const UFO_X = W * 0.48; // hover X — roughly centre
 
-      // ── Phase helpers ────────────────────────────────────────
-      // Each phase has a start time (ms) and duration (ms).
-      // progress(now, start, dur) returns 0→1 clamped.
+      // progress(now, start, dur) → 0–1 clamped
       function progress(now, start, dur) {
         return Math.min(1, Math.max(0, (now - start) / dur));
       }
 
       const T = {
-        ufoFlyIn:      { start: 0,    dur: 900  },
-        screenFlash:   { start: 750,  dur: 650  },
-        rayExtend:     { start: 1300, dur: 1200 },
-        alienDescend:  { start: 2400, dur: 1400 },
-        alienScurry:   { start: 3700, dur: 650  },
-        alienVanish:   { start: 4350, dur: 650  },
-        rayRetract:    { start: 4800, dur: 500  },
-        ufoFlyOut:     { start: 5000, dur: 700  },
-        total:                         5800,
+        ufoFlyIn:     { start: 0,    dur: 900  },
+        screenFlash:  { start: 750,  dur: 650  },
+        rayExtend:    { start: 1300, dur: 1200 },
+        alienDescend: { start: 2400, dur: 1400 },
+        alienScurry:  { start: 3700, dur: 650  },
+        alienVanish:  { start: 4350, dur: 650  },
+        rayRetract:   { start: 4800, dur: 500  },
+        ufoFlyOut:    { start: 5000, dur: 700  },
+        total:                        5800,
       };
 
-      // Rotating flash colours
       const FLASH_COLORS = [
-        [120, 220, 255],  // cyan
-        [180, 100, 255],  // purple
-        [80,  255, 160],  // green
-        [255, 200,  80],  // amber
+        [120, 220, 255], // cyan
+        [180, 100, 255], // purple
+        [80,  255, 160], // green
+        [255, 200,  80], // amber
       ];
       let flashColorIndex = 0;
       let lastFlashSwitch = 0;
 
-      // ── UFO drawing ──────────────────────────────────────────
+      // ── UFO ──────────────────────────────────────────────────
       function drawUFO(x, y, alpha) {
         ctx.save();
         ctx.globalAlpha = alpha;
 
-        // Glow underneath
+        // Underglow
         const glowR = UFO_W * 0.7;
         const glow = ctx.createRadialGradient(x, y + UFO_H * 0.5, 0, x, y + UFO_H * 0.5, glowR);
         glow.addColorStop(0,   'rgba(120, 240, 180, 0.35)');
@@ -803,7 +797,7 @@
         ctx.ellipse(x, y + UFO_H * 0.5, glowR, glowR * 0.4, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Body — flat ellipse
+        // Body
         const bodyGrad = ctx.createLinearGradient(x - UFO_W, y, x + UFO_W, y + UFO_H);
         bodyGrad.addColorStop(0,   '#9ee8c8');
         bodyGrad.addColorStop(0.4, '#c8f5e0');
@@ -813,8 +807,11 @@
         ctx.ellipse(x, y, UFO_W * 0.5, UFO_H * 0.5, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Dome on top
-        const domeGrad = ctx.createRadialGradient(x - UFO_W * 0.1, y - UFO_H * 0.6, 1, x, y - UFO_H * 0.3, UFO_W * 0.28);
+        // Dome
+        const domeGrad = ctx.createRadialGradient(
+          x - UFO_W * 0.1, y - UFO_H * 0.6, 1,
+          x, y - UFO_H * 0.3, UFO_W * 0.28
+        );
         domeGrad.addColorStop(0,   'rgba(220,255,240,0.95)');
         domeGrad.addColorStop(0.6, 'rgba(100,220,180,0.7)');
         domeGrad.addColorStop(1,   'rgba(60, 160,120,0.5)');
@@ -823,13 +820,11 @@
         ctx.ellipse(x, y - UFO_H * 0.1, UFO_W * 0.28, UFO_H * 0.75, 0, Math.PI, 0);
         ctx.fill();
 
-        // Ring of lights around the body equator
-        const lightCount = 7;
-        for (let i = 0; i < lightCount; i++) {
-          const angle = (i / lightCount) * Math.PI * 2;
-          const lx = x + Math.cos(angle) * UFO_W * 0.38;
-          const ly = y + Math.sin(angle) * UFO_H * 0.28;
-          // Pulse brightness using time
+        // Pulsing ring lights
+        for (let i = 0; i < 7; i++) {
+          const angle = (i / 7) * Math.PI * 2;
+          const lx    = x + Math.cos(angle) * UFO_W * 0.38;
+          const ly    = y + Math.sin(angle) * UFO_H * 0.28;
           const pulse = 0.5 + 0.5 * Math.sin(Date.now() * 0.006 + i * 1.1);
           ctx.beginPath();
           ctx.arc(lx, ly, 3.5, 0, Math.PI * 2);
@@ -840,93 +835,87 @@
         ctx.restore();
       }
 
-      // ── Ray drawing ──────────────────────────────────────────
-      function drawRay(ufoX, ufoY, extendProgress) {
-        const topY    = ufoY + UFO_H * 0.45;
-        const bottomY = lerp(topY, GROUND_Y, extendProgress);
-        const topW    = RAY_TOP_W;
-        const botW    = lerp(topW, RAY_BOT_W, extendProgress);
-
-        // Flicker
+      // ── Ray ──────────────────────────────────────────────────
+      function drawRay(ufoX, ufoY, extendP) {
+        const topY   = ufoY + UFO_H * 0.45;
+        const botY   = lerp(topY, GROUND_Y, extendP);
+        const topW   = RAY_TOP_W;
+        const botW   = lerp(topW, RAY_BOT_W, extendP);
         const flicker = 0.85 + 0.15 * Math.sin(Date.now() * 0.03);
 
-        const rayGrad = ctx.createLinearGradient(0, topY, 0, bottomY);
-        rayGrad.addColorStop(0,   `rgba(160, 255, 200, ${0.55 * flicker})`);
-        rayGrad.addColorStop(0.5, `rgba(100, 220, 170, ${0.3  * flicker})`);
-        rayGrad.addColorStop(1,   `rgba(60,  180, 130, ${0.1  * flicker})`);
+        const rayGrad = ctx.createLinearGradient(0, topY, 0, botY);
+        rayGrad.addColorStop(0,   `rgba(160,255,200,${0.55 * flicker})`);
+        rayGrad.addColorStop(0.5, `rgba(100,220,170,${0.30 * flicker})`);
+        rayGrad.addColorStop(1,   `rgba(60, 180,130,${0.10 * flicker})`);
 
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(ufoX - topW / 2, topY);
         ctx.lineTo(ufoX + topW / 2, topY);
-        ctx.lineTo(ufoX + botW / 2, bottomY);
-        ctx.lineTo(ufoX - botW / 2, bottomY);
+        ctx.lineTo(ufoX + botW / 2, botY);
+        ctx.lineTo(ufoX - botW / 2, botY);
         ctx.closePath();
         ctx.fillStyle = rayGrad;
         ctx.fill();
         ctx.restore();
       }
 
-      // ── Alien drawing ────────────────────────────────────────
-      // x, y = feet position (bottom of alien)
-      // scale = 1 = full size, shrinks to 0 when vanishing
+      // ── Alien ────────────────────────────────────────────────
+      // x, y = feet position; scale shrinks to 0 on vanish
       function drawAlien(x, y, alpha, scale) {
         ctx.save();
         ctx.globalAlpha = alpha;
         ctx.translate(x, y);
         ctx.scale(scale, scale);
-        // draw from feet upward so y=0 is always feet
-        ctx.translate(0, -ALIEN_H);
+        ctx.translate(0, -ALIEN_H); // draw upward from feet
 
         const head_r = ALIEN_H * 0.28;
         const headCY = head_r;
         const bodyTop = headCY + head_r * 0.7;
         const bodyBot = ALIEN_H * 0.72;
 
-        // Body — thin oval
+        // Body
         ctx.fillStyle = '#5ddc8a';
         ctx.beginPath();
         ctx.ellipse(0, (bodyTop + bodyBot) / 2, ALIEN_H * 0.1, (bodyBot - bodyTop) / 2, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Arms — two angled lines
+        // Arms
         ctx.strokeStyle = '#5ddc8a';
         ctx.lineWidth = Math.max(1.5, ALIEN_H * 0.045);
         ctx.lineCap = 'round';
         const armY = bodyTop + (bodyBot - bodyTop) * 0.3;
         ctx.beginPath();
-        ctx.moveTo(-ALIEN_H * 0.1, armY);
+        ctx.moveTo(-ALIEN_H * 0.1,  armY);
         ctx.lineTo(-ALIEN_H * 0.28, armY + ALIEN_H * 0.14);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(ALIEN_H * 0.1, armY);
-        ctx.lineTo(ALIEN_H * 0.28, armY + ALIEN_H * 0.14);
+        ctx.moveTo( ALIEN_H * 0.1,  armY);
+        ctx.lineTo( ALIEN_H * 0.28, armY + ALIEN_H * 0.14);
         ctx.stroke();
 
         // Legs
-        const legY = bodyBot;
         ctx.beginPath();
-        ctx.moveTo(-ALIEN_H * 0.05, legY);
+        ctx.moveTo(-ALIEN_H * 0.05, bodyBot);
         ctx.lineTo(-ALIEN_H * 0.14, ALIEN_H * 0.96);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(ALIEN_H * 0.05, legY);
-        ctx.lineTo(ALIEN_H * 0.14, ALIEN_H * 0.96);
+        ctx.moveTo( ALIEN_H * 0.05, bodyBot);
+        ctx.lineTo( ALIEN_H * 0.14, ALIEN_H * 0.96);
         ctx.stroke();
 
-        // Head — large oval
+        // Head
         ctx.fillStyle = '#6eeaa0';
         ctx.beginPath();
         ctx.ellipse(0, headCY, head_r * 0.82, head_r, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Eyes — two large dark ovals with inner glow
+        // Eyes
         const eyeOffX = head_r * 0.38;
         const eyeY    = headCY + head_r * 0.05;
         const eyeRX   = head_r * 0.3;
         const eyeRY   = head_r * 0.38;
 
-        // dark eye
         ctx.fillStyle = '#1a1a2e';
         ctx.beginPath();
         ctx.ellipse(-eyeOffX, eyeY, eyeRX, eyeRY, -0.2, 0, Math.PI * 2);
@@ -935,8 +924,8 @@
         ctx.ellipse( eyeOffX, eyeY, eyeRX, eyeRY,  0.2, 0, Math.PI * 2);
         ctx.fill();
 
-        // eye gleam
-        ctx.fillStyle = 'rgba(180, 255, 220, 0.7)';
+        // Eye gleam
+        ctx.fillStyle = 'rgba(180,255,220,0.7)';
         ctx.beginPath();
         ctx.ellipse(-eyeOffX - eyeRX * 0.2, eyeY - eyeRY * 0.25, eyeRX * 0.25, eyeRY * 0.2, -0.2, 0, Math.PI * 2);
         ctx.fill();
@@ -946,7 +935,7 @@
 
         // Antennae
         ctx.strokeStyle = '#5ddc8a';
-        ctx.lineWidth   = Math.max(1, ALIEN_H * 0.03);
+        ctx.lineWidth = Math.max(1, ALIEN_H * 0.03);
         ctx.beginPath();
         ctx.moveTo(-head_r * 0.35, headCY - head_r * 0.85);
         ctx.lineTo(-head_r * 0.55, headCY - head_r * 1.4);
@@ -955,7 +944,8 @@
         ctx.moveTo( head_r * 0.35, headCY - head_r * 0.85);
         ctx.lineTo( head_r * 0.55, headCY - head_r * 1.4);
         ctx.stroke();
-        // antenna tips
+
+        // Antenna tips
         ctx.fillStyle = '#aaffe0';
         ctx.beginPath();
         ctx.arc(-head_r * 0.55, headCY - head_r * 1.4, ALIEN_H * 0.03, 0, Math.PI * 2);
@@ -967,7 +957,7 @@
         ctx.restore();
       }
 
-      // ── Main frame loop ──────────────────────────────────────
+      // ── Frame loop ───────────────────────────────────────────
       let startTime = null;
 
       function frame(ts) {
@@ -975,76 +965,58 @@
         const now = ts - startTime;
 
         ctx.clearRect(0, 0, W, H);
-        // ── Dark overlay — improves contrast in light mode ─────
+
+        // flyInP / flyOutP computed first — overlay needs them
+        const flyInP  = easeOut(progress(now, T.ufoFlyIn.start,  T.ufoFlyIn.dur));
+        const flyOutP = easeIn (progress(now, T.ufoFlyOut.start, T.ufoFlyOut.dur));
+
+        // Dark overlay — contrast fix for light mode
         const overlayAlpha = now < T.ufoFlyOut.start
           ? Math.min(0.45, flyInP * 0.45)
           : 0.45 * (1 - flyOutP);
-        ctx.fillStyle = `rgba(0, 0, 10, ${overlayAlpha})`;
+        ctx.fillStyle = `rgba(0,0,10,${overlayAlpha})`;
         ctx.fillRect(0, 0, W, H);
 
-        // ── 1. Screen colour flash ─────────────────────────────
+        // Screen colour flash
         const flashP = progress(now, T.screenFlash.start, T.screenFlash.dur);
         if (flashP > 0 && flashP < 1) {
-          // Switch colour every ~160ms
           if (now - lastFlashSwitch > 160) {
             flashColorIndex = (flashColorIndex + 1) % FLASH_COLORS.length;
             lastFlashSwitch = now;
           }
           const [r, g, b] = FLASH_COLORS[flashColorIndex];
-          const flashAlpha = Math.sin(flashP * Math.PI) * 0.18;
-          ctx.fillStyle = `rgba(${r},${g},${b},${flashAlpha})`;
+          ctx.fillStyle = `rgba(${r},${g},${b},${Math.sin(flashP * Math.PI) * 0.18})`;
           ctx.fillRect(0, 0, W, H);
         }
 
-        // ── 2. UFO fly-in ─────────────────────────────────────
-        const flyInP  = easeOut(progress(now, T.ufoFlyIn.start, T.ufoFlyIn.dur));
-        const flyOutP = easeIn (progress(now, T.ufoFlyOut.start, T.ufoFlyOut.dur));
+        // UFO position + draw
         const ufoX    = now < T.ufoFlyOut.start
           ? lerp(W + UFO_W, UFO_X, flyInP)
           : lerp(UFO_X, -UFO_W, flyOutP);
         const ufoAlpha = now < T.ufoFlyOut.start ? 1 : 1 - flyOutP;
-
         drawUFO(ufoX, UFO_Y, ufoAlpha);
 
-        // ── 3. Ray ─────────────────────────────────────────────
-        const rayExtP    = easeOut(progress(now, T.rayExtend.start,  T.rayExtend.dur));
-        const rayRetractP = easeIn(progress(now, T.rayRetract.start, T.rayRetract.dur));
-        const rayProgress = now < T.rayRetract.start
-          ? rayExtP
-          : 1 - rayRetractP;
+        // Ray
+        const rayExtP     = easeOut(progress(now, T.rayExtend.start,  T.rayExtend.dur));
+        const rayRetractP = easeIn (progress(now, T.rayRetract.start, T.rayRetract.dur));
+        const rayProgress = now < T.rayRetract.start ? rayExtP : 1 - rayRetractP;
+        if (rayProgress > 0) drawRay(ufoX, UFO_Y, rayProgress);
 
-        if (rayProgress > 0) {
-          drawRay(ufoX, UFO_Y, rayProgress);
-        }
-
-        // ── 4. Alien descend ───────────────────────────────────
+        // Alien
         const descendP = easeOut(progress(now, T.alienDescend.start, T.alienDescend.dur));
         const scurryP  = easeIn (progress(now, T.alienScurry.start,  T.alienScurry.dur));
         const vanishP  =         progress(now, T.alienVanish.start,  T.alienVanish.dur);
 
-        const alienVisible = now >= T.alienDescend.start && now < T.alienVanish.start + T.alienVanish.dur;
-
-        if (alienVisible) {
-          // Vertical: descend from just below UFO to ground
+        if (now >= T.alienDescend.start && now < T.alienVanish.start + T.alienVanish.dur) {
           const alienTopY  = UFO_Y + UFO_H + ALIEN_H;
-          const alienBaseY = descendP < 1
-            ? lerp(alienTopY, GROUND_Y, descendP)
-            : GROUND_Y;
-
-          // Horizontal: scurry sideways after landing
-          // Scurry direction: always toward the nearest dark edge
-          const scurryDir = UFO_X < W / 2 ? -1 : 1;
-          const scurryDist = W * 0.18;
-          const alienX = UFO_X + scurryDir * scurryP * scurryDist;
-
-          // Scale and alpha for vanish
+          const alienBaseY = descendP < 1 ? lerp(alienTopY, GROUND_Y, descendP) : GROUND_Y;
+          const scurryDir  = UFO_X < W / 2 ? -1 : 1;
+          const alienX     = UFO_X + scurryDir * scurryP * W * 0.18;
           const alienScale = vanishP > 0 ? lerp(1, 0.15, easeIn(vanishP)) : 1;
           const alienAlpha = vanishP > 0 ? Math.max(0, 1 - vanishP)       : 1;
-
           drawAlien(alienX, alienBaseY, alienAlpha, alienScale);
         }
 
-        // ── Continue or finish ─────────────────────────────────
         if (now >= T.total) {
           done();
         } else {
