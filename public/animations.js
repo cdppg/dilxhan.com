@@ -1056,7 +1056,7 @@
       const MID_Y      = H * 0.50;  // vertical centre of sine path
       const AMPLITUDE  = H * 0.18;  // peak height above/below centre
       const FREQ       = 3.5;       // full oscillations across the path
-      const FLIGHT_DUR = 6500;      // ms — raise to slow the plane down
+      const FLIGHT_DUR = 10000;      // ms — raise to slow the plane down
       const PIN_SIZE   = Math.min(W, H) * 0.048;
       const FOOD_SIZE  = Math.max(18, Math.min(W, H) * 0.052);
       const PLANE_SIZE = Math.max(20, Math.min(W, H) * 0.058);
