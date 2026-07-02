@@ -975,6 +975,12 @@
         const now = ts - startTime;
 
         ctx.clearRect(0, 0, W, H);
+        // ── Dark overlay — improves contrast in light mode ─────
+        const overlayAlpha = now < T.ufoFlyOut.start
+          ? Math.min(0.45, flyInP * 0.45)
+          : 0.45 * (1 - flyOutP);
+        ctx.fillStyle = `rgba(0, 0, 10, ${overlayAlpha})`;
+        ctx.fillRect(0, 0, W, H);
 
         // ── 1. Screen colour flash ─────────────────────────────
         const flashP = progress(now, T.screenFlash.start, T.screenFlash.dur);
