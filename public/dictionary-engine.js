@@ -243,7 +243,55 @@
     return div.innerHTML;
   }
 
-  // ---------- Miss handling ----------
+  // ---------- Animation fact toast ----------
+  // Shows the animation's fact line as a brief centered toast —
+  // fully independent of the prompt and keyboard, so it stays
+  // visible on mobile even after dilxhan:dictionary-hit closes
+  // the touch keyboard and resets the prompt area.
+
+  function showAnimationFact(text) {
+    if (!text) return;
+
+    const existing = document.getElementById('dilxhan-anim-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'dilxhan-anim-toast';
+    toast.textContent = text;
+    toast.style.cssText = [
+      'position:fixed',
+      'bottom:28px',
+      'left:50%',
+      'transform:translateX(-50%) translateY(8px)',
+      'background:var(--surface,#fff)',
+      'color:var(--text,#111)',
+      'border:1px solid var(--border,#ddd)',
+      'border-radius:999px',
+      'padding:7px 18px',
+      'font-size:13px',
+      'font-family:inherit',
+      'letter-spacing:0.01em',
+      'white-space:nowrap',
+      'pointer-events:none',
+      'z-index:10000',
+      'opacity:0',
+      'transition:opacity 220ms ease, transform 220ms ease',
+    ].join(';');
+
+    document.body.appendChild(toast);
+
+    // Force layout then fade in
+    requestAnimationFrame(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateX(-50%) translateY(0)';
+    });
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(8px)';
+      setTimeout(() => toast.remove(), 250);
+    }, 2000);
+  }
 
   function showMissMessage(message) {
     // Reuses the prompt's typewriter element for a brief moment to
@@ -287,9 +335,9 @@
             window.__dilxhan.pulseTile(data.dictionaryKey || word);
           }
         } else if (data.type === 'animation') {
-          // Show the fact line briefly in the typewriter slot, then
-          // fire the animation after a short beat so both are visible.
-          showMissMessage(data.fact || '✦');
+          // Show the fact as a floating toast (not via the prompt
+          // typewriter) so it survives the keyboard-close on mobile.
+          showAnimationFact(data.fact || '✦');
           setTimeout(() => {
             window.dispatchEvent(new CustomEvent('dilxhan:animation', {
               detail: { key: data.animationKey },

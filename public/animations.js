@@ -428,102 +428,65 @@
 
 
   // ════════════════════════════════════════════════════════════
-  //  GLITCH  — brief CSS glitch on the hero + scanlines flash
+  //  GLITCH  — scanlines, RGB channel-split bars, noise pixels
   // ════════════════════════════════════════════════════════════
 
   ANIMATIONS['glitch'] = {
     run({ canvas, ctx, done, randRange, randInt }) {
       const W = canvas.width, H = canvas.height;
-      const hero = document.querySelector('.hero');
-
-      // Inject a one-shot keyframe animation onto the hero element
-      const styleId = 'dilxhan-glitch-style';
-      if (!document.getElementById(styleId)) {
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.textContent = `
-          @keyframes dilxhan-glitch-clip {
-            0%   { clip-path: inset(40% 0 50% 0); transform: translate(-4px, 0); }
-            10%  { clip-path: inset(10% 0 80% 0); transform: translate(4px, 0); }
-            20%  { clip-path: inset(70% 0 10% 0); transform: translate(-2px, 0); }
-            30%  { clip-path: inset(20% 0 60% 0); transform: translate(3px, 0); }
-            40%  { clip-path: inset(55% 0 25% 0); transform: translate(-3px, 0); }
-            50%  { clip-path: inset(0%  0 90% 0); transform: translate(0, 0); }
-            60%  { clip-path: inset(80% 0 5%  0); transform: translate(2px, 0); }
-            70%  { clip-path: inset(30% 0 45% 0); transform: translate(-4px, 0); }
-            80%  { clip-path: inset(5%  0 70% 0); transform: translate(4px, 0); }
-            100% { clip-path: inset(0%  0 0%  0); transform: translate(0, 0); }
-          }
-          .dilxhan-is-glitching::before,
-          .dilxhan-is-glitching::after {
-            content: attr(data-text);
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .dilxhan-is-glitching::before {
-            color: #0ff;
-            animation: dilxhan-glitch-clip 120ms steps(1) 3;
-          }
-          .dilxhan-is-glitching::after {
-            color: #f0f;
-            animation: dilxhan-glitch-clip 90ms steps(1) 4 reverse;
-          }
-        `;
-        document.head.appendChild(style);
-      }
-
-      // Scanline flash on canvas
-      const DURATION = 1200;
+      const DURATION = 1400;
       let elapsed    = 0;
 
-      function frame(dt) {
-        elapsed += dt;
+      function frame(ts) {
+        elapsed += 16; // approximate; good enough for a short burst
         ctx.clearRect(0, 0, W, H);
 
-        if (elapsed < 800) {
-          // flickering scanlines
-          for (let y = 0; y < H; y += randInt(3, 8)) {
-            if (Math.random() < 0.15) {
-              ctx.fillStyle   = 'rgba(0,255,255,0.04)';
-              ctx.globalAlpha = 1;
-              ctx.fillRect(0, y, W, randInt(1, 3));
-            }
+        // Intensity peaks mid-animation, eases in and out
+        const t         = Math.min(elapsed / DURATION, 1);
+        const intensity = Math.sin(t * Math.PI);
+
+        if (intensity > 0.05) {
+          // ── Horizontal tear bars with RGB channel split ──
+          const barCount = Math.floor(randRange(3, 9) * intensity);
+          for (let i = 0; i < barCount; i++) {
+            const y     = randRange(0, H);
+            const bh    = randRange(1, Math.max(2, 14 * intensity));
+            const shift = (Math.random() < 0.5 ? 1 : -1) * randRange(4, 32) * intensity;
+
+            ctx.globalAlpha = randRange(0.07, 0.2) * intensity;
+            ctx.fillStyle = 'rgba(255,0,80,1)';
+            ctx.fillRect(shift, y, W, bh);
+
+            ctx.fillStyle = 'rgba(0,255,200,1)';
+            ctx.fillRect(-shift, y + bh * 0.4, W, bh * 0.6);
           }
-          // random horizontal glitch bars
-          if (Math.random() < 0.3) {
-            const barY = randRange(0, H);
-            const barH = randRange(2, 10);
-            ctx.fillStyle   = `rgba(${randInt(0,255)},${randInt(0,255)},${randInt(0,255)},0.06)`;
-            ctx.fillRect(0, barY, W, barH);
+
+          // ── Scanline overlay ──
+          ctx.globalAlpha = 0.03 * intensity;
+          ctx.fillStyle = '#000';
+          for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1);
+
+          // ── Random noise pixels ──
+          if (intensity > 0.35) {
+            const count = Math.floor(randRange(60, 220) * intensity);
+            for (let i = 0; i < count; i++) {
+              ctx.globalAlpha = randRange(0.1, 0.5) * intensity;
+              ctx.fillStyle = `rgb(${randInt(0,255)},${randInt(0,255)},${randInt(0,255)})`;
+              ctx.fillRect(randRange(0, W), randRange(0, H), randRange(1, 4), randRange(1, 3));
+            }
           }
         }
 
         ctx.globalAlpha = 1;
 
         if (elapsed >= DURATION) {
-          if (hero) hero.classList.remove('dilxhan-is-glitching');
           done();
         } else {
-          requestAnimationFrame((ts) => frame(ts - (frame._last || ts)));
-          frame._last = performance.now();
+          requestAnimationFrame(frame);
         }
       }
 
-      // Apply glitch class to hero for CSS color-split effect
-      if (hero) {
-        hero.classList.add('dilxhan-is-glitching');
-        setTimeout(() => hero.classList.remove('dilxhan-is-glitching'), 500);
-      }
-
-      let lastTs = null;
-      requestAnimationFrame(function tick(ts) {
-        const dt = lastTs ? ts - lastTs : 16;
-        lastTs = ts;
-        frame(dt);
-      });
+      requestAnimationFrame(frame);
     },
   };
 
