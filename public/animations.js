@@ -1988,7 +1988,7 @@
   //  Difficulty controls time limit per tile count.
   // ════════════════════════════════════════════════════════════
 
-  ANIMATIONS['memory'] = {
+  ANIMATIONS['tiles'] = {
     run({ done }) {
       if (document.getElementById('dilxhan-mem-overlay')) { done(); return; }
 
@@ -2219,7 +2219,7 @@
 
           <!-- Setup -->
           <div id="dilxhan-mem-setup">
-            <p class="mem-title">MEMORY</p>
+            <p class="mem-title">MEMORY TILES</p>
             <p class="mem-sub">🌸 flip &amp; find 🌸</p>
 
             <p class="mem-lbl">Theme</p>
