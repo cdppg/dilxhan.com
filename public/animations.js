@@ -1501,6 +1501,481 @@
   };
 
   // ════════════════════════════════════════════════════════════
+  //  TIC TAC TOE  — space-themed neon mini game vs smart AI
+  //
+  //  Renders a DOM modal instead of a canvas overlay.
+  //  Player picks X or O and who goes first.
+  //  AI uses minimax — it plays optimally.
+  //
+  //  To change the AI name: edit AI_NAME below.
+  // ════════════════════════════════════════════════════════════
+
+  ANIMATIONS['tictactoe'] = {
+    run({ done }) {
+
+      // Guard — don't open a second modal if one is already up
+      if (document.getElementById('dilxhan-ttt-overlay')) { done(); return; }
+
+      const AI_NAME = 'Minion';
+
+      // ── CSS ───────────────────────────────────────────────
+      if (!document.getElementById('dilxhan-ttt-style')) {
+        const s = document.createElement('style');
+        s.id = 'dilxhan-ttt-style';
+        s.textContent = `
+          #dilxhan-ttt-overlay {
+            position: fixed; inset: 0; z-index: 10001;
+            background: rgba(0,0,15,0.82);
+            backdrop-filter: blur(6px);
+            display: flex; align-items: center; justify-content: center;
+            animation: ttt-fadein 280ms ease forwards;
+          }
+          @keyframes ttt-fadein { from { opacity:0 } to { opacity:1 } }
+
+          #dilxhan-ttt-modal {
+            position: relative;
+            background: #06071a;
+            border: 1px solid rgba(0,245,255,0.22);
+            border-radius: 18px;
+            padding: 36px 28px 28px;
+            width: min(400px, 92vw);
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow:
+              0 0 0 1px rgba(0,245,255,0.08),
+              0 0 50px rgba(0,245,255,0.1),
+              0 0 100px rgba(120,0,255,0.07);
+            font-family: inherit;
+            color: #dde4ff;
+          }
+
+          /* star field */
+          #dilxhan-ttt-modal::before {
+            content: '';
+            position: absolute; inset: 0; border-radius: 18px;
+            pointer-events: none; z-index: 0;
+            background-image:
+              radial-gradient(1px 1px at 12% 18%, rgba(255,255,255,.55) 0%, transparent 100%),
+              radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,.45) 0%, transparent 100%),
+              radial-gradient(1.5px 1.5px at 45% 6%,  rgba(255,255,255,.7)  0%, transparent 100%),
+              radial-gradient(1px 1px at 90% 52%, rgba(255,255,255,.4)  0%, transparent 100%),
+              radial-gradient(1px 1px at 8%  72%, rgba(255,255,255,.5)  0%, transparent 100%),
+              radial-gradient(1px 1px at 60% 88%, rgba(255,255,255,.4)  0%, transparent 100%),
+              radial-gradient(1.5px 1.5px at 30% 45%, rgba(255,255,255,.3) 0%, transparent 100%),
+              radial-gradient(1px 1px at 95% 8%,  rgba(255,255,255,.6)  0%, transparent 100%),
+              radial-gradient(1px 1px at 55% 30%, rgba(255,255,255,.35) 0%, transparent 100%),
+              radial-gradient(1px 1px at 22% 92%, rgba(255,255,255,.4)  0%, transparent 100%);
+          }
+
+          #dilxhan-ttt-close {
+            position: absolute; top: 12px; right: 14px; z-index: 10;
+            width: 30px; height: 30px; border-radius: 50%;
+            background: none; border: 1px solid rgba(0,245,255,0.25);
+            color: rgba(0,245,255,0.6); font-size: 13px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 150ms; line-height: 1;
+          }
+          #dilxhan-ttt-close:hover {
+            border-color: rgba(0,245,255,0.8); color: #00f5ff;
+            box-shadow: 0 0 12px rgba(0,245,255,0.3);
+          }
+
+          .ttt-title {
+            text-align: center; font-size: 20px; font-weight: 700;
+            letter-spacing: .25em; color: #00f5ff; margin: 0 0 3px;
+            text-shadow: 0 0 20px rgba(0,245,255,.8), 0 0 40px rgba(0,245,255,.4);
+            position: relative; z-index: 1;
+          }
+          .ttt-sub {
+            text-align: center; font-size: 10px; letter-spacing: .2em;
+            color: rgba(180,180,255,.45); margin: 0 0 26px;
+            position: relative; z-index: 1;
+          }
+          .ttt-label {
+            text-align: center; font-size: 10px; letter-spacing: .15em;
+            color: rgba(180,180,255,.45); margin: 0 0 10px;
+            text-transform: uppercase; position: relative; z-index: 1;
+          }
+          .ttt-row {
+            display: flex; gap: 10px; justify-content: center;
+            margin-bottom: 22px; position: relative; z-index: 1;
+          }
+          .ttt-opt {
+            width: 80px; height: 68px; border-radius: 12px;
+            background: rgba(0,0,30,.7);
+            border: 1.5px solid rgba(0,245,255,.15);
+            color: rgba(180,180,255,.6); font-size: 26px; font-weight: 700;
+            cursor: pointer; transition: all 180ms;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 2px;
+            font-family: inherit;
+          }
+          .ttt-opt span.ttt-opt-label {
+            font-size: 9px; font-weight: 400; letter-spacing: .1em;
+            color: rgba(180,180,255,.35);
+          }
+          .ttt-opt:hover {
+            border-color: rgba(0,245,255,.45);
+            box-shadow: 0 0 18px rgba(0,245,255,.1);
+          }
+          .ttt-opt.sel-x {
+            border-color: #00f5ff; color: #00f5ff;
+            text-shadow: 0 0 16px rgba(0,245,255,.9);
+            box-shadow: 0 0 24px rgba(0,245,255,.18), inset 0 0 18px rgba(0,245,255,.05);
+          }
+          .ttt-opt.sel-o {
+            border-color: #ff00ff; color: #ff00ff;
+            text-shadow: 0 0 16px rgba(255,0,255,.9);
+            box-shadow: 0 0 24px rgba(255,0,255,.18), inset 0 0 18px rgba(255,0,255,.05);
+          }
+          .ttt-opt.sel-first {
+            border-color: #a06bff; color: #c09eff;
+            box-shadow: 0 0 22px rgba(123,47,255,.22);
+          }
+
+          #dilxhan-ttt-start {
+            display: block; width: 100%; padding: 13px;
+            background: linear-gradient(135deg, rgba(0,245,255,.12), rgba(123,47,255,.12));
+            border: 1.5px solid rgba(0,245,255,.35); border-radius: 10px;
+            color: #00f5ff; font-size: 12px; font-weight: 600;
+            letter-spacing: .22em; cursor: pointer; transition: all 180ms;
+            font-family: inherit; position: relative; z-index: 1;
+          }
+          #dilxhan-ttt-start:hover {
+            background: linear-gradient(135deg, rgba(0,245,255,.22), rgba(123,47,255,.22));
+            box-shadow: 0 0 28px rgba(0,245,255,.18);
+          }
+
+          #dilxhan-ttt-score {
+            display: flex; justify-content: center; gap: 0;
+            margin-bottom: 16px; position: relative; z-index: 1;
+          }
+          .ttt-sc {
+            text-align: center; padding: 0 18px;
+          }
+          .ttt-sc + .ttt-sc { border-left: 1px solid rgba(0,245,255,.1); }
+          .ttt-sc-lbl { font-size: 8px; letter-spacing: .14em; color: rgba(180,180,255,.38); display: block; text-transform: uppercase; margin-bottom: 2px; }
+          .ttt-sc-val { font-size: 24px; font-weight: 700; display: block; }
+          .ttt-sc-val.c { color: #00f5ff; text-shadow: 0 0 14px rgba(0,245,255,.6); }
+          .ttt-sc-val.m { color: #ff00ff; text-shadow: 0 0 14px rgba(255,0,255,.6); }
+          .ttt-sc-val.w { color: rgba(180,180,255,.5); }
+
+          #dilxhan-ttt-status {
+            text-align: center; font-size: 12px; letter-spacing: .12em;
+            color: rgba(180,180,255,.75); margin-bottom: 18px;
+            min-height: 18px; position: relative; z-index: 1;
+          }
+
+          #dilxhan-ttt-board {
+            display: grid; grid-template-columns: repeat(3,1fr);
+            gap: 2px; margin: 0 auto 18px; max-width: 270px;
+            background: rgba(0,245,255,.12); border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 0 24px rgba(0,245,255,.07);
+            position: relative; z-index: 1;
+          }
+          .ttt-cell {
+            aspect-ratio: 1; background: #06071a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px; font-weight: 700;
+            cursor: pointer; transition: background 140ms; user-select: none;
+          }
+          .ttt-cell:hover:not(.taken) { background: rgba(0,245,255,.05); }
+          .ttt-cell.taken { cursor: default; }
+
+          .ttt-x-mark {
+            color: #00f5ff;
+            text-shadow: 0 0 18px rgba(0,245,255,1), 0 0 36px rgba(0,245,255,.5);
+            animation: ttt-pop 200ms cubic-bezier(.34,1.56,.64,1) forwards;
+          }
+          .ttt-o-mark {
+            color: #ff00ff;
+            text-shadow: 0 0 18px rgba(255,0,255,1), 0 0 36px rgba(255,0,255,.5);
+            animation: ttt-pop 200ms cubic-bezier(.34,1.56,.64,1) forwards;
+          }
+          @keyframes ttt-pop {
+            from { transform: scale(.2); opacity: 0; }
+            to   { transform: scale(1);  opacity: 1; }
+          }
+          .ttt-cell.win {
+            animation: ttt-win-flash 350ms ease 3;
+          }
+          @keyframes ttt-win-flash {
+            0%,100% { background: #06071a; }
+            50%     { background: rgba(0,245,255,.14); }
+          }
+
+          #dilxhan-ttt-restart {
+            display: block; width: 100%; padding: 10px;
+            background: transparent; border: 1px solid rgba(0,245,255,.18);
+            border-radius: 8px; color: rgba(0,245,255,.55);
+            font-size: 11px; letter-spacing: .16em;
+            cursor: pointer; transition: all 180ms; font-family: inherit;
+            position: relative; z-index: 1;
+          }
+          #dilxhan-ttt-restart:hover {
+            border-color: rgba(0,245,255,.45); color: #00f5ff;
+            box-shadow: 0 0 14px rgba(0,245,255,.1);
+          }
+          .ttt-thinking { animation: ttt-blink 500ms ease-in-out infinite; display: inline-block; }
+          @keyframes ttt-blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+        `;
+        document.head.appendChild(s);
+      }
+
+      // ── DOM ───────────────────────────────────────────────
+      const overlay = document.createElement('div');
+      overlay.id = 'dilxhan-ttt-overlay';
+      overlay.innerHTML = `
+        <div id="dilxhan-ttt-modal">
+          <button id="dilxhan-ttt-close" aria-label="Close">✕</button>
+
+          <!-- Setup screen -->
+          <div id="dilxhan-ttt-setup">
+            <p class="ttt-title">TIC TAC TOE</p>
+            <p class="ttt-sub">VS ${AI_NAME}</p>
+
+            <p class="ttt-label">Choose your symbol</p>
+            <div class="ttt-row">
+              <button class="ttt-opt sel-x" data-sym="X">X<span class="ttt-opt-label">YOU</span></button>
+              <button class="ttt-opt"       data-sym="O">O<span class="ttt-opt-label">YOU</span></button>
+            </div>
+
+            <p class="ttt-label">Who goes first?</p>
+            <div class="ttt-row">
+              <button class="ttt-opt sel-first" data-first="player">🧑<span class="ttt-opt-label">YOU</span></button>
+              <button class="ttt-opt"           data-first="ai">🤖<span class="ttt-opt-label">${AI_NAME}</span></button>
+            </div>
+
+            <button id="dilxhan-ttt-start">START GAME</button>
+          </div>
+
+          <!-- Game screen -->
+          <div id="dilxhan-ttt-game" hidden>
+            <p class="ttt-title">TIC TAC TOE</p>
+            <p class="ttt-sub">VS ${AI_NAME}</p>
+
+            <div id="dilxhan-ttt-score">
+              <div class="ttt-sc"><span class="ttt-sc-lbl">You</span><span class="ttt-sc-val c" id="ttt-sc-p">0</span></div>
+              <div class="ttt-sc"><span class="ttt-sc-lbl">Draws</span><span class="ttt-sc-val w" id="ttt-sc-d">0</span></div>
+              <div class="ttt-sc"><span class="ttt-sc-lbl">${AI_NAME}</span><span class="ttt-sc-val m" id="ttt-sc-a">0</span></div>
+            </div>
+
+            <div id="dilxhan-ttt-status"></div>
+            <div id="dilxhan-ttt-board"></div>
+            <button id="dilxhan-ttt-restart">↺ &nbsp;NEW GAME</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      // ── State ─────────────────────────────────────────────
+      let playerSym  = 'X';
+      let aiSym      = 'O';
+      let playerFirst = true;
+      let board      = Array(9).fill(null);
+      let gameActive = false;
+      let score      = { player: 0, ai: 0, draws: 0 };
+
+      const WIN_LINES = [
+        [0,1,2],[3,4,5],[6,7,8],
+        [0,3,6],[1,4,7],[2,5,8],
+        [0,4,8],[2,4,6],
+      ];
+
+      // ── Minimax ───────────────────────────────────────────
+      function checkResult(b) {
+        for (const [a,c,d] of WIN_LINES) {
+          if (b[a] && b[a] === b[c] && b[a] === b[d])
+            return { winner: b[a], line: [a,c,d] };
+        }
+        if (b.every(c => c !== null)) return { winner: 'draw', line: [] };
+        return null;
+      }
+
+      function minimax(b, depth, isMax) {
+        const r = checkResult(b);
+        if (r) {
+          if (r.winner === aiSym)     return 10 - depth;
+          if (r.winner === playerSym) return depth - 10;
+          return 0;
+        }
+        if (isMax) {
+          let best = -Infinity;
+          for (let i = 0; i < 9; i++) {
+            if (!b[i]) {
+              b[i] = aiSym;
+              best = Math.max(best, minimax(b, depth+1, false));
+              b[i] = null;
+            }
+          }
+          return best;
+        } else {
+          let best = Infinity;
+          for (let i = 0; i < 9; i++) {
+            if (!b[i]) {
+              b[i] = playerSym;
+              best = Math.min(best, minimax(b, depth+1, true));
+              b[i] = null;
+            }
+          }
+          return best;
+        }
+      }
+
+      function getBestMove(b) {
+        let best = -Infinity, move = -1;
+        for (let i = 0; i < 9; i++) {
+          if (!b[i]) {
+            b[i] = aiSym;
+            const s = minimax(b, 0, false);
+            b[i] = null;
+            if (s > best) { best = s; move = i; }
+          }
+        }
+        return move;
+      }
+
+      // ── Rendering ─────────────────────────────────────────
+      function setStatus(html) {
+        document.getElementById('dilxhan-ttt-status').innerHTML = html;
+      }
+
+      function updateScore() {
+        document.getElementById('ttt-sc-p').textContent = score.player;
+        document.getElementById('ttt-sc-d').textContent = score.draws;
+        document.getElementById('ttt-sc-a').textContent = score.ai;
+      }
+
+      function renderBoard() {
+        const boardEl = document.getElementById('dilxhan-ttt-board');
+        boardEl.innerHTML = '';
+        board.forEach((val, i) => {
+          const cell = document.createElement('div');
+          cell.className = 'ttt-cell' + (val ? ' taken' : '');
+          cell.dataset.i = i;
+          if (val) {
+            const mark = document.createElement('span');
+            mark.className = val === 'X' ? 'ttt-x-mark' : 'ttt-o-mark';
+            mark.textContent = val;
+            cell.appendChild(mark);
+          }
+          cell.addEventListener('click', onCellClick);
+          boardEl.appendChild(cell);
+        });
+      }
+
+      function highlightWin(line) {
+        const cells = document.querySelectorAll('.ttt-cell');
+        line.forEach(i => cells[i].classList.add('win'));
+      }
+
+      // ── Game flow ─────────────────────────────────────────
+      function onCellClick(e) {
+        const i = parseInt(e.currentTarget.dataset.i);
+        if (!gameActive || board[i]) return;
+        placeMove(i, playerSym);
+        const result = checkResult(board);
+        if (result) { endGame(result); return; }
+        aiTurn();
+      }
+
+      function placeMove(i, sym) {
+        board[i] = sym;
+        renderBoard();
+      }
+
+      function aiTurn() {
+        gameActive = false;
+        setStatus(`<span class="ttt-thinking">${AI_NAME} IS THINKING</span>`);
+        setTimeout(() => {
+          const move = getBestMove([...board]);
+          placeMove(move, aiSym);
+          const result = checkResult(board);
+          if (result) { endGame(result); return; }
+          gameActive = true;
+          setStatus('YOUR TURN');
+        }, 480);
+      }
+
+      function endGame(result) {
+        gameActive = false;
+        if (result.winner === playerSym) {
+          score.player++;
+          setStatus('✦ YOU WIN ✦');
+          highlightWin(result.line);
+        } else if (result.winner === aiSym) {
+          score.ai++;
+          setStatus(`${AI_NAME} WINS`);
+          highlightWin(result.line);
+        } else {
+          score.draws++;
+          setStatus('DRAW');
+        }
+        updateScore();
+      }
+
+      function startGame() {
+        board = Array(9).fill(null);
+        gameActive = true;
+        renderBoard();
+        if (playerFirst) {
+          setStatus('YOUR TURN');
+        } else {
+          setStatus('');
+          aiTurn();
+        }
+      }
+
+      // ── Setup screen wiring ────────────────────────────────
+      let selectedSym   = 'X';
+      let selectedFirst = 'player';
+
+      overlay.querySelectorAll('[data-sym]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedSym = btn.dataset.sym;
+          overlay.querySelectorAll('[data-sym]').forEach(b => {
+            b.classList.remove('sel-x', 'sel-o');
+          });
+          btn.classList.add(selectedSym === 'X' ? 'sel-x' : 'sel-o');
+        });
+      });
+
+      overlay.querySelectorAll('[data-first]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedFirst = btn.dataset.first;
+          overlay.querySelectorAll('[data-first]').forEach(b => b.classList.remove('sel-first'));
+          btn.classList.add('sel-first');
+        });
+      });
+
+      document.getElementById('dilxhan-ttt-start').addEventListener('click', () => {
+        playerSym   = selectedSym;
+        aiSym       = playerSym === 'X' ? 'O' : 'X';
+        playerFirst = selectedFirst === 'player';
+        score       = { player: 0, ai: 0, draws: 0 };
+        updateScore();
+        document.getElementById('dilxhan-ttt-setup').hidden = true;
+        document.getElementById('dilxhan-ttt-game').hidden  = false;
+        startGame();
+      });
+
+      document.getElementById('dilxhan-ttt-restart').addEventListener('click', startGame);
+
+      // ── Close ─────────────────────────────────────────────
+      function cleanup() {
+        overlay.remove();
+        done();
+      }
+
+      document.getElementById('dilxhan-ttt-close').addEventListener('click', cleanup);
+      overlay.addEventListener('click', e => {
+        if (e.target === overlay) cleanup();
+      });
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════
   //  ── TEMPLATE — copy this block to add a new animation ────
   //
   //  Steps:
