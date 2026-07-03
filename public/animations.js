@@ -1976,6 +1976,621 @@
   };
 
   // ════════════════════════════════════════════════════════════
+  //  MEMORY  — cherry blossom memory tiles game vs the clock
+  //
+  //  Player picks theme, tile count, and difficulty.
+  //  Cards are shuffled fresh every new game (Fisher-Yates).
+  //  Card back shows "X" in #ff3131 in Fraunces.
+  //  DOM modal — not a canvas overlay.
+  //
+  //  Themes:  animals · sports · food · nature · space
+  //  Tiles:   16 (8 pairs) · 24 (12 pairs) · 30 (15 pairs)
+  //  Difficulty controls time limit per tile count.
+  // ════════════════════════════════════════════════════════════
+
+  ANIMATIONS['memory'] = {
+    run({ done }) {
+      if (document.getElementById('dilxhan-mem-overlay')) { done(); return; }
+
+      // ── CSS ──────────────────────────────────────────────────
+      if (!document.getElementById('dilxhan-mem-style')) {
+        const s = document.createElement('style');
+        s.id = 'dilxhan-mem-style';
+        s.textContent = `
+          #dilxhan-mem-overlay {
+            position:fixed; inset:0; z-index:10001;
+            background:rgba(255,238,245,0.9);
+            backdrop-filter:blur(10px);
+            display:flex; align-items:center; justify-content:center;
+            animation:mem-fi 350ms ease forwards;
+            overflow:hidden;
+          }
+          @keyframes mem-fi { from{opacity:0} to{opacity:1} }
+
+          .mem-petal {
+            position:absolute; top:-16px; pointer-events:none;
+            border-radius:50% 0 50% 0;
+            background:rgba(255,160,190,0.5);
+            animation:mem-fall linear infinite;
+          }
+          @keyframes mem-fall {
+            0%  {transform:translateY(0) rotate(0deg) translateX(0);opacity:0}
+            8%  {opacity:.7}
+            92% {opacity:.4}
+            100%{transform:translateY(102vh) rotate(560deg) translateX(35px);opacity:0}
+          }
+
+          #dilxhan-mem-modal {
+            position:relative; z-index:1;
+            background:rgba(255,253,255,0.97);
+            border:1px solid rgba(220,140,165,0.25);
+            border-radius:20px;
+            padding:30px 22px 22px;
+            width:min(600px,94vw);
+            max-height:90vh; overflow-y:auto;
+            box-shadow:0 6px 40px rgba(200,80,120,0.1),0 1px 0 rgba(255,255,255,.9) inset;
+            font-family:inherit; color:#5c3d4a;
+          }
+          #dilxhan-mem-modal::-webkit-scrollbar{width:3px}
+          #dilxhan-mem-modal::-webkit-scrollbar-thumb{background:rgba(220,140,165,.3);border-radius:2px}
+
+          #dilxhan-mem-close {
+            position:absolute; top:13px; right:15px; z-index:10;
+            width:28px; height:28px; border-radius:50%;
+            background:rgba(220,140,165,.1);
+            border:1px solid rgba(220,140,165,.28);
+            color:rgba(180,90,120,.65); font-size:12px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 160ms;
+          }
+          #dilxhan-mem-close:hover{background:rgba(220,140,165,.2);border-color:rgba(220,140,165,.6);color:#b04060}
+
+          .mem-title{
+            font-family:'Fraunces',Georgia,serif;
+            font-weight:900; font-size:26px; text-align:center;
+            color:#c05070; letter-spacing:.05em; margin:0 0 2px;
+          }
+          .mem-sub{
+            text-align:center; font-size:11px; letter-spacing:.14em;
+            color:rgba(140,70,90,.45); margin:0 0 22px; text-transform:uppercase;
+          }
+          .mem-lbl{
+            font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+            color:rgba(140,70,90,.45); text-align:center; margin:0 0 9px;
+          }
+
+          .mem-opts{
+            display:flex; flex-wrap:wrap; gap:7px;
+            justify-content:center; margin-bottom:18px;
+          }
+          .mem-opt{
+            background:rgba(255,240,248,.8);
+            border:1.5px solid rgba(220,140,165,.18);
+            border-radius:12px; padding:9px 13px;
+            cursor:pointer; transition:all 170ms;
+            font-family:inherit; color:#7a4558;
+            font-size:12px; text-align:center; min-width:68px;
+            display:flex; flex-direction:column; align-items:center; gap:2px;
+          }
+          .mem-opt:hover{border-color:rgba(220,140,165,.5);background:rgba(255,228,240,.9)}
+          .mem-opt.sel{
+            border-color:#e8748a; background:rgba(232,116,138,.1); color:#b04060;
+            box-shadow:0 0 0 3px rgba(232,116,138,.12);
+          }
+          .mem-opt-icon{font-size:20px; line-height:1}
+          .mem-opt-name{font-size:11px}
+          .mem-opt-hint{font-size:9px; color:rgba(140,70,90,.4); letter-spacing:.04em}
+
+          #dilxhan-mem-start{
+            display:block; width:100%; padding:13px;
+            background:linear-gradient(135deg,#f4929f,#e8748a);
+            border:none; border-radius:12px; color:#fff;
+            font-size:12px; font-weight:600; letter-spacing:.2em;
+            cursor:pointer; transition:all 170ms; font-family:inherit;
+            box-shadow:0 3px 16px rgba(232,116,138,.32); margin-top:6px;
+          }
+          #dilxhan-mem-start:hover{
+            background:linear-gradient(135deg,#f5a0ac,#ec849a);
+            box-shadow:0 4px 22px rgba(232,116,138,.42);
+            transform:translateY(-1px);
+          }
+
+          #dilxhan-mem-header{
+            display:flex; justify-content:space-around; align-items:center;
+            margin-bottom:14px; padding:10px 12px;
+            background:rgba(255,240,248,.7); border-radius:10px;
+            border:1px solid rgba(220,140,165,.16);
+          }
+          .mem-stat{text-align:center}
+          .mem-stat-v{
+            font-family:'Fraunces',Georgia,serif;
+            font-size:22px; font-weight:700; color:#c05070; display:block; line-height:1;
+          }
+          .mem-stat-v.warn{color:#d07020}
+          .mem-stat-v.danger{color:#cc2020; animation:mem-blink 480ms ease-in-out infinite}
+          @keyframes mem-blink{0%,100%{opacity:1}50%{opacity:.3}}
+          .mem-stat-l{font-size:8px; letter-spacing:.12em; color:rgba(140,70,90,.45); text-transform:uppercase}
+
+          #dilxhan-mem-board{
+            display:grid; gap:7px; margin:0 auto 16px;
+          }
+          .mem-card{
+            perspective:900px; cursor:pointer;
+            aspect-ratio:1; border-radius:10px;
+            transition:transform 100ms;
+          }
+          .mem-card:not(.flipped):not(.matched):hover{transform:scale(1.04)}
+          .mem-card-inner{
+            position:relative; width:100%; height:100%;
+            transform-style:preserve-3d;
+            transition:transform 0.44s cubic-bezier(.4,0,.2,1);
+            border-radius:10px;
+          }
+          .mem-card.flipped .mem-card-inner,
+          .mem-card.matched .mem-card-inner{transform:rotateY(180deg)}
+          .mem-card-face{
+            position:absolute; inset:0; border-radius:10px;
+            backface-visibility:hidden; display:flex;
+            align-items:center; justify-content:center;
+            border:1.5px solid rgba(220,140,165,.2);
+          }
+          .mem-card-back{
+            background:linear-gradient(135deg,#fff0f6,#ffe2ee);
+            box-shadow:0 2px 8px rgba(200,80,120,.07);
+          }
+          .mem-card-back-x{
+            font-family:'Fraunces',Georgia,serif;
+            font-weight:900; color:#ff3131; line-height:1; user-select:none;
+          }
+          .mem-card-front{
+            transform:rotateY(180deg);
+            background:#fffbfc;
+            box-shadow:0 2px 8px rgba(200,80,120,.05);
+          }
+          .mem-card.matched .mem-card-face{border-color:rgba(140,200,130,.45)}
+          .mem-card.matched .mem-card-front{background:rgba(240,253,240,.95)}
+          .mem-card.matched .mem-card-inner{
+            animation:mem-match-pop 300ms cubic-bezier(.34,1.56,.64,1) forwards;
+          }
+          @keyframes mem-match-pop{
+            0%{transform:rotateY(180deg) scale(1)}
+            50%{transform:rotateY(180deg) scale(1.09)}
+            100%{transform:rotateY(180deg) scale(1)}
+          }
+          .mem-card.wrong .mem-card-inner{
+            animation:mem-shake 360ms ease forwards;
+          }
+          @keyframes mem-shake{
+            0%{transform:rotateY(180deg) translateX(0)}
+            22%{transform:rotateY(180deg) translateX(-5px)}
+            44%{transform:rotateY(180deg) translateX(5px)}
+            66%{transform:rotateY(180deg) translateX(-3px)}
+            88%{transform:rotateY(180deg) translateX(3px)}
+            100%{transform:rotateY(180deg) translateX(0)}
+          }
+          .mem-card.locked-card{cursor:not-allowed}
+
+          .mem-action-row{display:flex; gap:8px}
+          .mem-btn{
+            flex:1; padding:10px;
+            background:transparent;
+            border:1px solid rgba(220,140,165,.25); border-radius:9px;
+            color:rgba(140,70,90,.65); font-size:11px; letter-spacing:.14em;
+            cursor:pointer; transition:all 160ms; font-family:inherit;
+          }
+          .mem-btn:hover{border-color:rgba(220,140,165,.55);color:#b04060;background:rgba(220,140,165,.06)}
+          .mem-btn.primary{
+            background:linear-gradient(135deg,#f4929f,#e8748a);
+            border-color:transparent; color:#fff; font-weight:600;
+            box-shadow:0 2px 12px rgba(232,116,138,.28);
+          }
+          .mem-btn.primary:hover{background:linear-gradient(135deg,#f5a0ac,#ec849a);box-shadow:0 3px 16px rgba(232,116,138,.38)}
+
+          #dilxhan-mem-result{text-align:center; padding:8px 0}
+          .mem-r-emoji{font-size:50px; display:block; margin-bottom:10px}
+          .mem-r-title{
+            font-family:'Fraunces',Georgia,serif;
+            font-size:24px; font-weight:900; color:#c05070; margin:0 0 4px;
+          }
+          .mem-r-sub{font-size:12px; color:rgba(140,70,90,.55); margin:0 0 20px; letter-spacing:.07em}
+          .mem-r-stats{
+            display:flex; justify-content:center; gap:0;
+            margin-bottom:22px; padding:14px;
+            background:rgba(255,240,248,.7); border-radius:12px;
+            border:1px solid rgba(220,140,165,.16);
+          }
+          .mem-rs{text-align:center; padding:0 16px}
+          .mem-rs+.mem-rs{border-left:1px solid rgba(220,140,165,.18)}
+          .mem-rs-v{
+            font-family:'Fraunces',Georgia,serif;
+            font-size:24px; font-weight:700; color:#c05070; display:block;
+          }
+          .mem-rs-l{font-size:9px; letter-spacing:.12em; color:rgba(140,70,90,.45); text-transform:uppercase}
+        `;
+        document.head.appendChild(s);
+      }
+
+      // ── DOM ──────────────────────────────────────────────────
+      const overlay = document.createElement('div');
+      overlay.id = 'dilxhan-mem-overlay';
+      overlay.innerHTML = `
+        <div id="dilxhan-mem-modal">
+          <button id="dilxhan-mem-close">✕</button>
+
+          <!-- Setup -->
+          <div id="dilxhan-mem-setup">
+            <p class="mem-title">MEMORY</p>
+            <p class="mem-sub">🌸 flip &amp; find 🌸</p>
+
+            <p class="mem-lbl">Theme</p>
+            <div class="mem-opts">
+              <button class="mem-opt sel" data-theme="animals">
+                <span class="mem-opt-icon">🐶</span><span class="mem-opt-name">Animals</span>
+              </button>
+              <button class="mem-opt" data-theme="sports">
+                <span class="mem-opt-icon">⚽</span><span class="mem-opt-name">Sports</span>
+              </button>
+              <button class="mem-opt" data-theme="food">
+                <span class="mem-opt-icon">🍕</span><span class="mem-opt-name">Food</span>
+              </button>
+              <button class="mem-opt" data-theme="nature">
+                <span class="mem-opt-icon">🌸</span><span class="mem-opt-name">Nature</span>
+              </button>
+              <button class="mem-opt" data-theme="space">
+                <span class="mem-opt-icon">🚀</span><span class="mem-opt-name">Space</span>
+              </button>
+            </div>
+
+            <p class="mem-lbl">Tiles</p>
+            <div class="mem-opts">
+              <button class="mem-opt sel" data-size="16">
+                <span class="mem-opt-name">16 tiles</span>
+                <span class="mem-opt-hint">8 pairs</span>
+              </button>
+              <button class="mem-opt" data-size="24">
+                <span class="mem-opt-name">24 tiles</span>
+                <span class="mem-opt-hint">12 pairs</span>
+              </button>
+              <button class="mem-opt" data-size="30">
+                <span class="mem-opt-name">30 tiles</span>
+                <span class="mem-opt-hint">15 pairs</span>
+              </button>
+            </div>
+
+            <p class="mem-lbl">Difficulty</p>
+            <div class="mem-opts">
+              <button class="mem-opt sel" data-diff="easy">
+                <span class="mem-opt-name">Easy</span>
+                <span class="mem-opt-hint">More time</span>
+              </button>
+              <button class="mem-opt" data-diff="medium">
+                <span class="mem-opt-name">Medium</span>
+                <span class="mem-opt-hint">Balanced</span>
+              </button>
+              <button class="mem-opt" data-diff="hard">
+                <span class="mem-opt-name">Hard</span>
+                <span class="mem-opt-hint">Fast pace</span>
+              </button>
+            </div>
+
+            <button id="dilxhan-mem-start">START GAME</button>
+          </div>
+
+          <!-- Game -->
+          <div id="dilxhan-mem-game" hidden>
+            <div id="dilxhan-mem-header">
+              <div class="mem-stat">
+                <span class="mem-stat-v" id="mem-timer">3:00</span>
+                <span class="mem-stat-l">Time</span>
+              </div>
+              <div class="mem-stat">
+                <span class="mem-stat-v" id="mem-moves">0</span>
+                <span class="mem-stat-l">Moves</span>
+              </div>
+              <div class="mem-stat">
+                <span class="mem-stat-v" id="mem-pairs">0/8</span>
+                <span class="mem-stat-l">Pairs</span>
+              </div>
+            </div>
+            <div id="dilxhan-mem-board"></div>
+            <div class="mem-action-row">
+              <button class="mem-btn" id="mem-quit">← Settings</button>
+              <button class="mem-btn" id="mem-renew">↺ New Game</button>
+            </div>
+          </div>
+
+          <!-- Result -->
+          <div id="dilxhan-mem-result" hidden></div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      // ── Petals ───────────────────────────────────────────────
+      for (let i = 0; i < 14; i++) {
+        const p = document.createElement('div');
+        p.className = 'mem-petal';
+        const sz = 6 + Math.random() * 7;
+        p.style.cssText = `left:${Math.random()*100}%;width:${sz}px;height:${sz*.65}px;animation-duration:${4+Math.random()*5}s;animation-delay:${-Math.random()*10}s`;
+        overlay.appendChild(p);
+      }
+
+      // ── Data ─────────────────────────────────────────────────
+      const THEMES = {
+        animals: ['🐶','🐱','🐻','🦊','🐨','🐯','🦁','🐸','🐧','🦋','🦜','🐬','🦄','🐙','🦔'],
+        sports:  ['⚽','🏀','🏈','⚾','🎾','🏐','🏒','🎿','🏄','🚴','🎯','🥊','🏓','🤸','🏊'],
+        food:    ['🍕','🍔','🌮','🍜','🍣','🍩','🍰','🍓','🫐','🥑','🌽','🍦','🧁','🥐','🍋'],
+        nature:  ['🌸','🌺','🌻','🌹','🍀','🌿','🍁','🌊','🏔️','🌈','🌙','🍄','🌴','🌾','🌵'],
+        space:   ['🚀','🌍','⭐','🪐','🛸','☄️','🔭','🛰️','💫','🌟','🌌','🪨','🌠','🔮','🌑'],
+      };
+      const TIMES = {
+        16: { easy:180, medium:120, hard:60  },
+        24: { easy:240, medium:150, hard:90  },
+        30: { easy:300, medium:200, hard:120 },
+      };
+      const COLS = { 16:4, 24:6, 30:6 };
+
+      // ── State ────────────────────────────────────────────────
+      let selTheme = 'animals', selSize = 16, selDiff = 'easy';
+      let cards = [], flipped = [], matchedCount = 0;
+      let moves = 0, totalPairs = 0, locked = false;
+      let timerSecs = 0, timerStart = 0, timerRAF = null;
+      let gameRunning = false, resultShown = false;
+
+      // ── Helpers ──────────────────────────────────────────────
+      function shuffle(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function fmt(s) {
+        return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+      }
+
+      function show(id)  { document.getElementById(id).hidden = false; }
+      function hide(id)  { document.getElementById(id).hidden = true;  }
+      function el(id)    { return document.getElementById(id); }
+
+      // ── Setup option binding ─────────────────────────────────
+      function bindOpts(attr, setter) {
+        overlay.querySelectorAll(`[${attr}]`).forEach(btn => {
+          btn.addEventListener('click', () => {
+            overlay.querySelectorAll(`[${attr}]`).forEach(b => b.classList.remove('sel'));
+            btn.classList.add('sel');
+            setter(btn.dataset[attr.replace('data-','')]);
+          });
+        });
+      }
+      bindOpts('data-theme', v => selTheme = v);
+      bindOpts('data-size',  v => selSize  = parseInt(v));
+      bindOpts('data-diff',  v => selDiff  = v);
+
+      // ── Start game ───────────────────────────────────────────
+      function startGame() {
+        totalPairs   = selSize / 2;
+        matchedCount = 0;
+        moves        = 0;
+        flipped      = [];
+        locked       = false;
+        resultShown  = false;
+        timerSecs    = TIMES[selSize][selDiff];
+
+        // Shuffle fresh every game — randomizes spawn position each time
+        const emojis = THEMES[selTheme].slice(0, totalPairs);
+        cards = shuffle([...emojis, ...emojis]).map((emoji, i) => ({
+          id: i, emoji, flipped: false, matched: false,
+        }));
+
+        hide('dilxhan-mem-setup');
+        hide('dilxhan-mem-result');
+        show('dilxhan-mem-game');
+
+        updateHeader();
+        renderBoard();
+        startTimer();
+      }
+
+      // ── Board rendering ──────────────────────────────────────
+      function renderBoard() {
+        const boardEl = el('dilxhan-mem-board');
+        const cols    = COLS[selSize];
+        boardEl.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+        boardEl.innerHTML = '';
+
+        const xSize = cols === 6
+          ? 'clamp(13px,2.4vw,24px)'
+          : 'clamp(18px,3.2vw,34px)';
+        const emojiSize = cols === 6
+          ? 'clamp(15px,3vw,28px)'
+          : 'clamp(20px,4vw,36px)';
+
+        cards.forEach((card, i) => {
+          const div = document.createElement('div');
+          div.className = 'mem-card'
+            + (card.flipped  ? ' flipped' : '')
+            + (card.matched  ? ' matched' : '');
+          div.dataset.i = i;
+          div.innerHTML = `
+            <div class="mem-card-inner">
+              <div class="mem-card-face mem-card-back">
+                <span class="mem-card-back-x" style="font-size:${xSize}">X</span>
+              </div>
+              <div class="mem-card-face mem-card-front" style="font-size:${emojiSize}">
+                ${card.emoji}
+              </div>
+            </div>`;
+          div.addEventListener('click', () => onCardClick(i));
+          boardEl.appendChild(div);
+        });
+      }
+
+      function cardEl(i) {
+        return el('dilxhan-mem-board').children[i];
+      }
+
+      // ── Card click ───────────────────────────────────────────
+      function onCardClick(i) {
+        const card = cards[i];
+        if (locked || card.flipped || card.matched || !gameRunning) return;
+
+        card.flipped = true;
+        cardEl(i).classList.add('flipped');
+        flipped.push(i);
+
+        if (flipped.length === 2) {
+          moves++;
+          updateHeader();
+          locked = true;
+          checkMatch();
+        }
+      }
+
+      function checkMatch() {
+        const [a, b] = flipped;
+
+        if (cards[a].emoji === cards[b].emoji) {
+          // Match ✓
+          setTimeout(() => {
+            cards[a].matched = cards[b].matched = true;
+            cardEl(a).classList.add('matched');
+            cardEl(b).classList.add('matched');
+            matchedCount++;
+            flipped = [];
+            locked  = false;
+            updateHeader();
+            if (matchedCount === totalPairs) {
+              gameRunning = false;
+              cancelAnimationFrame(timerRAF);
+              setTimeout(showResult, 550);
+            }
+          }, 200);
+        } else {
+          // No match — shake then flip back
+          cardEl(a).classList.add('wrong');
+          cardEl(b).classList.add('wrong');
+          setTimeout(() => {
+            cards[a].flipped = cards[b].flipped = false;
+            const eA = cardEl(a), eB = cardEl(b);
+            eA.classList.remove('flipped','wrong');
+            eB.classList.remove('flipped','wrong');
+            flipped = [];
+            locked  = false;
+          }, 960);
+        }
+      }
+
+      // ── Header ───────────────────────────────────────────────
+      function updateHeader() {
+        el('mem-moves').textContent = moves;
+        el('mem-pairs').textContent = `${matchedCount}/${totalPairs}`;
+      }
+
+      // ── Timer ────────────────────────────────────────────────
+      function startTimer() {
+        gameRunning = true;
+        timerStart  = performance.now();
+
+        function tick() {
+          if (!gameRunning) return;
+          const elapsed    = Math.floor((performance.now() - timerStart) / 1000);
+          const remaining  = Math.max(0, timerSecs - elapsed);
+          const timerEl    = el('mem-timer');
+          timerEl.textContent = fmt(remaining);
+          timerEl.className   = 'mem-stat-v'
+            + (remaining <= 10 ? ' danger' : remaining <= 30 ? ' warn' : '');
+
+          if (remaining === 0) {
+            gameRunning = false;
+            showResult();
+            return;
+          }
+          timerRAF = requestAnimationFrame(tick);
+        }
+        timerRAF = requestAnimationFrame(tick);
+      }
+
+      // ── Result ───────────────────────────────────────────────
+      function showResult() {
+        if (resultShown) return;
+        resultShown = true;
+        gameRunning = false;
+        cancelAnimationFrame(timerRAF);
+
+        const isWin    = matchedCount === totalPairs;
+        const elapsed  = Math.min(
+          Math.floor((performance.now() - timerStart) / 1000),
+          timerSecs
+        );
+
+        el('dilxhan-mem-result').innerHTML = `
+          <span class="mem-r-emoji">${isWin ? '🌸' : '💮'}</span>
+          <p class="mem-r-title">${isWin ? 'You Did It!' : "Time's Up!"}</p>
+          <p class="mem-r-sub">${isWin
+            ? 'All pairs found — beautifully done.'
+            : `Found ${matchedCount} of ${totalPairs} pairs.`}
+          </p>
+          <div class="mem-r-stats">
+            <div class="mem-rs">
+              <span class="mem-rs-v">${matchedCount}/${totalPairs}</span>
+              <span class="mem-rs-l">Pairs</span>
+            </div>
+            <div class="mem-rs">
+              <span class="mem-rs-v">${moves}</span>
+              <span class="mem-rs-l">Moves</span>
+            </div>
+            <div class="mem-rs">
+              <span class="mem-rs-v">${fmt(elapsed)}</span>
+              <span class="mem-rs-l">Time</span>
+            </div>
+          </div>
+          <div class="mem-action-row">
+            <button class="mem-btn" id="mem-back">← Settings</button>
+            <button class="mem-btn primary" id="mem-again">↺ Play Again</button>
+          </div>
+        `;
+
+        hide('dilxhan-mem-game');
+        show('dilxhan-mem-result');
+
+        el('mem-back').addEventListener('click', () => {
+          hide('dilxhan-mem-result');
+          show('dilxhan-mem-setup');
+        });
+        el('mem-again').addEventListener('click', startGame);
+      }
+
+      // ── Button wiring ────────────────────────────────────────
+      el('dilxhan-mem-start').addEventListener('click', startGame);
+
+      el('mem-quit').addEventListener('click', () => {
+        gameRunning = false;
+        cancelAnimationFrame(timerRAF);
+        hide('dilxhan-mem-game');
+        show('dilxhan-mem-setup');
+      });
+
+      el('mem-renew').addEventListener('click', () => {
+        gameRunning = false;
+        cancelAnimationFrame(timerRAF);
+        startGame(); // fresh shuffle every time
+      });
+
+      // ── Close ────────────────────────────────────────────────
+      function cleanup() {
+        gameRunning = false;
+        cancelAnimationFrame(timerRAF);
+        overlay.remove();
+        done();
+      }
+      el('dilxhan-mem-close').addEventListener('click', cleanup);
+      overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(); });
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════
   //  ── TEMPLATE — copy this block to add a new animation ────
   //
   //  Steps:
