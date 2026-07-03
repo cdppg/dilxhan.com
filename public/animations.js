@@ -1062,7 +1062,7 @@
       const MID_Y      = H * 0.50;
       const AMPLITUDE  = H * 0.18;
       const FREQ       = 3.5;
-      const FLIGHT_DUR = 6500;
+      const FLIGHT_DUR = 10000;
       const PIN_SIZE   = Math.min(W, H) * 0.048;
       const FOOD_SIZE  = Math.max(18, Math.min(W, H) * 0.052);
       const PLANE_SIZE = Math.max(20, Math.min(W, H) * 0.058);
