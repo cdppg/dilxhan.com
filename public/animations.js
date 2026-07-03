@@ -1035,9 +1035,15 @@
   //  Pure canvas — no assets needed.
   //  Visible in both light and dark mode (dark overlay).
   //
+  //  DESKTOP FLICKER FIX: all food emoji are pre-rendered to
+  //  offscreen canvases once at init. The frame loop blits
+  //  cached images via drawImage — no font engine or glyph
+  //  rasterization happens during animation, eliminating the
+  //  desktop emoji flicker entirely.
+  //
   //  SEQUENCE:
   //    0–600ms       Dark background fades in
-  //    400–1200ms    Dashed sine path reveals
+  //    400–1300ms    Dashed sine path reveals
   //    500–1100ms    Origin pin drops
   //    1000ms        Ripple rings burst from pin
   //    2400ms        Plane takes off along sine path
@@ -1051,12 +1057,12 @@
       const W = canvas.width, H = canvas.height;
 
       // ── Tuning knobs ─────────────────────────────────────────
-      const ORIGIN_X   = W * 0.10;  // origin pin X
-      const DEST_X     = W * 0.90;  // destination pin X
-      const MID_Y      = H * 0.50;  // vertical centre of sine path
-      const AMPLITUDE  = H * 0.18;  // peak height above/below centre
-      const FREQ       = 3.5;       // full oscillations across the path
-      const FLIGHT_DUR = 10000;      // ms — raise to slow the plane down
+      const ORIGIN_X   = W * 0.10;
+      const DEST_X     = W * 0.90;
+      const MID_Y      = H * 0.50;
+      const AMPLITUDE  = H * 0.18;
+      const FREQ       = 3.5;
+      const FLIGHT_DUR = 6500;
       const PIN_SIZE   = Math.min(W, H) * 0.048;
       const FOOD_SIZE  = Math.max(18, Math.min(W, H) * 0.052);
       const PLANE_SIZE = Math.max(20, Math.min(W, H) * 0.058);
@@ -1097,8 +1103,7 @@
         total:        2400 + FLIGHT_DUR + 2300,
       };
 
-      // ── Food items — exactly on sine peaks and valleys ────────
-      // With FREQ=3.5: peaks at (0.25+n)/FREQ, valleys at (0.75+n)/FREQ
+      // ── Food items on sine peaks and valleys ─────────────────
       const FOOD_DEFS = [
         { emoji: '🍰', t: 0.25 / FREQ }, // peak 1
         { emoji: '🍕', t: 0.75 / FREQ }, // valley 1
@@ -1122,6 +1127,38 @@
         };
       });
 
+      // ── Pre-render food emoji to offscreen canvases ───────────
+      // Done ONCE here at init — the frame loop never touches the
+      // font engine again. Eliminates desktop glyph-cache flicker.
+      const CACHE_RES  = 3;   // render at 3× for crisp scaling
+      const foodCaches = foods.map(f => {
+        const size = Math.ceil(FOOD_SIZE * 2 * CACHE_RES);
+        const oc   = document.createElement('canvas');
+        oc.width   = size;
+        oc.height  = size;
+        const oc2  = oc.getContext('2d');
+        oc2.font          = `${Math.floor(FOOD_SIZE * CACHE_RES)}px serif`;
+        oc2.textAlign     = 'center';
+        oc2.textBaseline  = 'middle';
+        oc2.fillText(f.emoji, size / 2, size / 2);
+        return { canvas: oc, size };
+      });
+
+      // ── Pre-render plane emoji the same way ───────────────────
+      const PLANE_CACHE_RES = 3;
+      const planeCache = (() => {
+        const size = Math.ceil(PLANE_SIZE * 2 * PLANE_CACHE_RES);
+        const oc   = document.createElement('canvas');
+        oc.width   = size;
+        oc.height  = size;
+        const oc2  = oc.getContext('2d');
+        oc2.font          = `${Math.floor(PLANE_SIZE * PLANE_CACHE_RES)}px serif`;
+        oc2.textAlign     = 'center';
+        oc2.textBaseline  = 'middle';
+        oc2.fillText('✈️', size / 2, size / 2);
+        return { canvas: oc, size };
+      })();
+
       // ── Particle pools ────────────────────────────────────────
       const smoke    = [];
       const confetti = [];
@@ -1132,20 +1169,18 @@
 
       // ── Background ────────────────────────────────────────────
       function drawBg(alpha) {
-        ctx.fillStyle = `rgba(6, 10, 28, ${0.9 * alpha})`;
+        ctx.fillStyle = `rgba(6,10,28,${0.9 * alpha})`;
         ctx.fillRect(0, 0, W, H);
       }
 
       // ── Dashed sine path ──────────────────────────────────────
-      // Draws the full path dimly, then re-draws the traced
-      // portion (behind the plane) slightly brighter.
       function drawPath(revealAlpha, flightP) {
         const steps = 140;
-
-        // Full path — dim
         ctx.save();
         ctx.setLineDash([5, 9]);
-        ctx.lineWidth   = 1.5;
+        ctx.lineWidth = 1.5;
+
+        // Full path — dim
         ctx.strokeStyle = `rgba(255,255,255,${0.22 * revealAlpha})`;
         ctx.beginPath();
         const [sx, sy] = sinePt(0);
@@ -1156,7 +1191,7 @@
         }
         ctx.stroke();
 
-        // Traced portion — brighter
+        // Traced portion behind plane — brighter
         if (flightP > 0) {
           ctx.strokeStyle = `rgba(255,255,255,${0.55 * revealAlpha})`;
           ctx.beginPath();
@@ -1164,7 +1199,7 @@
           ctx.moveTo(tx, ty);
           const tracedSteps = Math.ceil(flightP * steps);
           for (let i = 1; i <= tracedSteps; i++) {
-            const [px, py] = sinePt((i / steps));
+            const [px, py] = sinePt(i / steps);
             ctx.lineTo(px, py);
           }
           ctx.stroke();
@@ -1183,14 +1218,12 @@
         ctx.globalAlpha = alpha * Math.min(1, dropP * 3);
         ctx.translate(x, drawY);
 
-        // Drop shadow
         ctx.beginPath();
         ctx.ellipse(0, PIN_SIZE * 0.08,
           PIN_SIZE * 0.18, PIN_SIZE * 0.055, 0, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.fill();
 
-        // Tail
         ctx.beginPath();
         ctx.moveTo(-PIN_SIZE * 0.17, -PIN_SIZE * 0.3);
         ctx.lineTo(0,                 PIN_SIZE * 0.06);
@@ -1198,7 +1231,6 @@
         ctx.fillStyle = color;
         ctx.fill();
 
-        // Circle head
         ctx.beginPath();
         ctx.arc(0, -PIN_SIZE * 0.54, PIN_SIZE * 0.33, 0, Math.PI * 2);
         ctx.fillStyle = color;
@@ -1207,7 +1239,6 @@
         ctx.lineWidth   = 1.5;
         ctx.stroke();
 
-        // Inner dot
         ctx.beginPath();
         ctx.arc(0, -PIN_SIZE * 0.54, PIN_SIZE * 0.1, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -1217,7 +1248,6 @@
       }
 
       // ── Ripples ───────────────────────────────────────────────
-      // 6 rings, staggered 160ms apart, large radius, thick→thin
       function spawnRipples(x, y) {
         for (let i = 0; i < 6; i++) {
           ripples.push({
@@ -1233,10 +1263,9 @@
           const r   = ripples[i];
           const age = absNow - r.born;
           if (age < 0) continue;
-          const t      = Math.min(1, age / r.maxAge);
-          const radius = easeOut(t) * Math.min(W, H) * 0.20;
+          const t = Math.min(1, age / r.maxAge);
           ctx.beginPath();
-          ctx.arc(r.x, r.y, radius, 0, Math.PI * 2);
+          ctx.arc(r.x, r.y, easeOut(t) * Math.min(W, H) * 0.20, 0, Math.PI * 2);
           ctx.strokeStyle = `rgba(255,65,65,${(1 - t) * 0.85})`;
           ctx.lineWidth   = lerp(4.5, 0.5, t);
           ctx.stroke();
@@ -1260,37 +1289,38 @@
         }
       }
 
-      // ── Plane emoji ───────────────────────────────────────────
+      // ── Plane — blit from cache, rotate around centre ─────────
       function drawPlane(x, y, angle, alpha) {
+        const { canvas: pc, size } = planeCache;
+        const drawSize = PLANE_SIZE * 2; // display size (not cache size)
         ctx.save();
-        ctx.globalAlpha   = alpha;
+        ctx.globalAlpha = alpha;
         ctx.translate(x, y);
         ctx.rotate(angle);
-        ctx.font          = `${PLANE_SIZE}px serif`;
-        ctx.textAlign     = 'center';
-        ctx.textBaseline  = 'middle';
-        ctx.fillText('✈️', 0, 0);
+        ctx.drawImage(pc, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
         ctx.restore();
       }
 
-      // ── Food emoji ────────────────────────────────────────────
-      function drawFood(food, overrideAlpha) {
-        if (food.collectAlpha <= 0) return;
+      // ── Food — blit from cache, scale via drawImage size ──────
+      // ctx.scale() is never called — scaling is done by varying
+      // the destination rect size in drawImage, which doesn't
+      // trigger per-frame glyph re-rasterization on desktop.
+      function drawFood(food, index, overrideAlpha) {
         const a = overrideAlpha !== undefined
-        ? overrideAlpha * food.collectAlpha
-        : food.collectAlpha;
+          ? overrideAlpha * food.collectAlpha
+          : food.collectAlpha;
         if (a <= 0) return;
 
+        const { canvas: fc } = foodCaches[index];
+        const drawSize = FOOD_SIZE * 2 * food.collectScale;
+
         ctx.save();
-        ctx.globalAlpha  = a;
-        ctx.translate(food.x, food.y);
-        // Use font size for scaling — never ctx.scale() with emoji on desktop.
-        // ctx.scale forces re-rasterization every frame; font size lets the
-        // browser cache the glyph at each integer size.
-        ctx.font         = `${Math.round(FOOD_SIZE * food.collectScale)}px serif`;
-        ctx.textAlign    = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(food.emoji, 0, 0);
+        ctx.globalAlpha = a;
+        ctx.drawImage(fc,
+          food.x - drawSize / 2,
+          food.y - drawSize / 2,
+          drawSize, drawSize
+        );
         ctx.restore();
       }
 
@@ -1357,24 +1387,20 @@
 
         ctx.clearRect(0, 0, W, H);
 
-        // Global alpha (fade in → hold → fade out)
         const bgInP  = easeOut(prog(now, T.bgFadeIn.start, T.bgFadeIn.dur));
         const bgOutP = easeIn (prog(now, T.fadeOut.start,  T.fadeOut.dur));
         const globalA = bgInP * (1 - bgOutP);
 
         drawBg(globalA);
 
-        // Path
         const pathRevealA = easeOut(prog(now, T.pathReveal.start, T.pathReveal.dur));
         const flightP     = now >= T.planeStart
           ? Math.min(1, (now - T.planeStart) / FLIGHT_DUR)
           : 0;
 
-        if (pathRevealA > 0) {
-          drawPath(pathRevealA * globalA, flightP);
-        }
+        if (pathRevealA > 0) drawPath(pathRevealA * globalA, flightP);
 
-        // Destination pin — soft blue, fades in with path
+        // Destination pin
         if (pathRevealA > 0.3) {
           drawPin(
             destPx[0], destPx[1], '#4488ff',
@@ -1389,7 +1415,7 @@
           drawPin(originPx[0], originPx[1], '#ff3333', globalA, pinDropP);
         }
 
-        // Ripple rings (absolute time so stagger works across frames)
+        // Ripples
         if (now >= T.ripple && !ripplesSpawned) {
           spawnRipples(originPx[0], originPx[1]);
           ripplesSpawned = true;
@@ -1401,7 +1427,7 @@
           const [px, py] = sinePt(flightP);
           const angle    = sineTangent(flightP);
 
-          // Smoke from rear of plane
+          // Smoke
           if (flightP < 1 && Math.random() < 0.38) {
             smoke.push({
               x:  px - Math.cos(angle) * PLANE_SIZE * 0.55,
@@ -1414,51 +1440,55 @@
           }
           updateSmoke();
 
-          // Food — collected strictly one by one as plane passes each t
-          for (const food of foods) {
+          // Food — one by one collection, all via drawImage (no font calls)
+          for (let i = 0; i < foods.length; i++) {
+            const food = foods[i];
+
             if (flightP >= food.t && !food.collected) {
               food.collected = true;
               food.pulseAge  = 0;
             }
 
             if (!food.collected) {
+              // Alpha pulse as plane approaches — no scale change,
+              // no re-rasterization, no flicker
               const near = food.t - flightP;
               if (near > 0 && near < 0.07) {
-                // Alpha pulse instead of scale — no re-rasterization per frame
-                food.collectAlpha = 0.6 + 0.4 * Math.abs(Math.sin(now * 0.018));
+                food.collectAlpha = 0.55 + 0.45 * Math.abs(Math.sin(now * 0.018));
               } else {
                 food.collectAlpha = 1;
                 food.collectScale = 1;
               }
-              drawFood(food, globalA);
+              drawFood(food, i, globalA);
             } else {
-              // Burst: quick scale-up then fade out
+              // Burst: scale up via drawImage dest size, then fade
               food.pulseAge    += dt;
               food.collectScale = 1 + easeOut(Math.min(1, food.pulseAge / 200)) * 0.75;
               food.collectAlpha = Math.max(0, 1 - food.pulseAge / 380);
-              drawFood(food);
+              drawFood(food, i);
             }
           }
 
-          // Plane on top of everything
+          // Plane on top
           const planeA = flightP < 0.03
             ? flightP / 0.03
             : flightP > 0.97 ? (1 - flightP) / 0.03 : 1;
           drawPlane(px, py, angle, planeA * (1 - bgOutP));
 
         } else {
-          // Before takeoff — show food faded with background
-          for (const food of foods) drawFood(food, globalA);
+          // Before takeoff — food faded with background
+          for (let i = 0; i < foods.length; i++) {
+            drawFood(foods[i], i, globalA);
+          }
         }
 
-        // Gold confetti at landing
+        // Confetti
         if (now >= T.confetti && !confettiSpawned) {
           spawnConfetti(destPx[0], destPx[1]);
           confettiSpawned = true;
         }
         if (confettiSpawned) updateConfetti();
 
-        // Finish
         if (now >= T.total && (confettiDone || confetti.length === 0)) {
           done();
         } else {
