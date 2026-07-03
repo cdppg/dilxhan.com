@@ -1275,15 +1275,19 @@
 
       // ── Food emoji ────────────────────────────────────────────
       function drawFood(food, overrideAlpha) {
+        if (food.collectAlpha <= 0) return;
         const a = overrideAlpha !== undefined
-          ? overrideAlpha * food.collectAlpha
-          : food.collectAlpha;
+        ? overrideAlpha * food.collectAlpha
+        : food.collectAlpha;
         if (a <= 0) return;
+
         ctx.save();
         ctx.globalAlpha  = a;
         ctx.translate(food.x, food.y);
-        ctx.scale(food.collectScale, food.collectScale);
-        ctx.font         = `${FOOD_SIZE}px serif`;
+        // Use font size for scaling — never ctx.scale() with emoji on desktop.
+        // ctx.scale forces re-rasterization every frame; font size lets the
+        // browser cache the glyph at each integer size.
+        ctx.font         = `${Math.round(FOOD_SIZE * food.collectScale)}px serif`;
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(food.emoji, 0, 0);
@@ -1418,11 +1422,12 @@
             }
 
             if (!food.collected) {
-              // Pulse gently as plane approaches within 0.07t
               const near = food.t - flightP;
               if (near > 0 && near < 0.07) {
-                food.collectScale = 1 + 0.14 * Math.abs(Math.sin(now * 0.022));
+                // Alpha pulse instead of scale — no re-rasterization per frame
+                food.collectAlpha = 0.6 + 0.4 * Math.abs(Math.sin(now * 0.018));
               } else {
+                food.collectAlpha = 1;
                 food.collectScale = 1;
               }
               drawFood(food, globalA);
