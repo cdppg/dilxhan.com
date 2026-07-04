@@ -3269,9 +3269,12 @@
         if (gamePhase==='shooting') {
           kickT = Math.min(1,(now-phaseStart)/BALL_ANIM);
         } else if (gamePhase==='celebrating') {
-          const et = now-phaseStart;
-          jumpY = Math.sin(Math.min(1,et/600)*Math.PI) * h*0.32;
-          armAngle = Math.PI*0.75*Math.min(1,et/500);
+          const et = now - phaseStart;
+          if (char === 'cr7') {
+            // CR7 only gets the jump — iconic SIUUU leap
+            jumpY = Math.sin(Math.min(1, et/600) * Math.PI) * h * 0.32;
+          }
+          armAngle = Math.PI * 0.75 * Math.min(1, et/500);
         } else if (gamePhase==='save') {
           armAngle = -0.25; // arms drop / disappointed
         }
@@ -3331,13 +3334,45 @@
               ctx.moveTo(-h*0.16,-h*0.38); ctx.lineTo(-h*0.34,-h*0.18);
               ctx.stroke();
             } else {
-              // Messi: both arms rise pointing to sky
+              // Messi: both arms rise toward sky, one finger pointing up from each hand
+              const at = Math.min(1, (now - phaseStart) / 500);
+              const rise = Math.PI * 0.72 * at;
+
+              // Left arm
+              const lx = -h*0.16 - Math.sin(rise*0.4)*h*0.22;
+              const ly = -h*0.38 - Math.cos(rise)*h*0.22;
               ctx.beginPath();
-              ctx.moveTo(-h*0.16,-h*0.38);
-              ctx.lineTo(-h*0.16-Math.sin(armAngle*0.5)*h*0.22,-h*0.38-Math.cos(armAngle)*h*0.22);
-              ctx.moveTo( h*0.16,-h*0.38);
-              ctx.lineTo( h*0.16+Math.sin(armAngle*0.5)*h*0.22,-h*0.38-Math.cos(armAngle)*h*0.22);
+              ctx.moveTo(-h*0.16, -h*0.38);
+              ctx.lineTo(lx, ly);
               ctx.stroke();
+              // Left index finger pointing straight up
+              ctx.beginPath();
+              ctx.moveTo(lx, ly);
+              ctx.lineTo(lx, ly - h*0.10);
+              ctx.stroke();
+              // Left finger tip dot (knuckle)
+              ctx.fillStyle = CHARS[char].skin;
+              ctx.beginPath();
+              ctx.arc(lx, ly - h*0.10, h*0.025, 0, Math.PI*2);
+              ctx.fill();
+
+              // Right arm
+              const rx = h*0.16 + Math.sin(rise*0.4)*h*0.22;
+              const ry = -h*0.38 - Math.cos(rise)*h*0.22;
+              ctx.beginPath();
+              ctx.moveTo(h*0.16, -h*0.38);
+              ctx.lineTo(rx, ry);
+              ctx.stroke();
+              // Right index finger pointing straight up
+              ctx.beginPath();
+              ctx.moveTo(rx, ry);
+              ctx.lineTo(rx, ry - h*0.10);
+              ctx.stroke();
+              // Right finger tip dot
+              ctx.fillStyle = CHARS[char].skin;
+              ctx.beginPath();
+              ctx.arc(rx, ry - h*0.10, h*0.025, 0, Math.PI*2);
+              ctx.fill();
             }
           } else {
             // Save — arms droop
