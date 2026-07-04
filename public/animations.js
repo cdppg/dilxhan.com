@@ -3349,8 +3349,8 @@
               const rise = Math.PI * 0.72 * at;
 
               // Left arm
-              const lx = -h*0.16 - Math.sin(rise*0.4)*h*0.22;
-              const ly = -h*0.38 - Math.cos(rise)*h*0.40;
+              const lx = -h*0.16 - Math.sin(rise*0.2)*h*0.22;
+              const ly = -h*0.38 - (Math.cos(rise) * h*0.22) + h*0.08;
               ctx.beginPath();
               ctx.moveTo(-h*0.16, -h*0.38);
               ctx.lineTo(lx, ly);
@@ -3367,8 +3367,8 @@
               ctx.fill();
 
               // Right arm
-              const rx = h*0.16 + Math.sin(rise*0.4)*h*0.22;
-              const ry = -h*0.38 - Math.cos(rise)*h*0.22;
+              const rx = h*0.16 + Math.sin(rise*0.2)*h*0.22;
+              const ry = -h*0.38 - (Math.cos(rise) * h*0.22) + h*0.08;
               ctx.beginPath();
               ctx.moveTo(h*0.16, -h*0.38);
               ctx.lineTo(rx, ry);
