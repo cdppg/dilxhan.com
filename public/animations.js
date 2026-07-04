@@ -2591,6 +2591,1036 @@
   };
 
   // ════════════════════════════════════════════════════════════
+  //  CR7  — penalty shootout mini game
+  //  Choose CR7 (Portugal) or Messi (Argentina) vs AI keeper.
+  //  Drag from the ball to aim and shoot.
+  //  Score 3 out of 5 to win. All 5 always taken unless you
+  //  clinch 3 early.
+  //
+  //  Difficulty controls keeper AI accuracy:
+  //    Easy   → keeper dives randomly
+  //    Medium → 40% chance of reading your column
+  //    Hard   → 65% chance of reading your column
+  //    Top-row shots have a 55% chance of scoring even if
+  //    keeper dives the right column (harder to reach).
+  // ════════════════════════════════════════════════════════════
+
+  ANIMATIONS['cr7'] = {
+    run({ done }) {
+      if (document.getElementById('dilxhan-cr7-overlay')) { done(); return; }
+
+      // ── CSS ──────────────────────────────────────────────────
+      if (!document.getElementById('dilxhan-cr7-style')) {
+        const s = document.createElement('style');
+        s.id = 'dilxhan-cr7-style';
+        s.textContent = `
+          #dilxhan-cr7-overlay {
+            position:fixed; inset:0; z-index:10001;
+            background:rgba(10,8,25,0.88);
+            backdrop-filter:blur(8px);
+            display:flex; align-items:center; justify-content:center;
+            animation:cr7-fi 300ms ease forwards;
+          }
+          @keyframes cr7-fi{from{opacity:0}to{opacity:1}}
+
+          #dilxhan-cr7-modal {
+            position:relative; z-index:1;
+            background:#0d0d1f;
+            border:1px solid rgba(255,255,255,0.1);
+            border-radius:18px;
+            padding:28px 22px 22px;
+            width:min(520px,94vw);
+            max-height:92vh; overflow-y:auto;
+            box-shadow:0 0 60px rgba(0,0,0,0.6);
+            font-family:inherit; color:#e8e8ff;
+          }
+          #dilxhan-cr7-modal::-webkit-scrollbar{width:3px}
+          #dilxhan-cr7-modal::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.15);border-radius:2px}
+
+          #dilxhan-cr7-close {
+            position:absolute; top:12px; right:14px; z-index:10;
+            width:28px; height:28px; border-radius:50%;
+            background:rgba(255,255,255,0.06);
+            border:1px solid rgba(255,255,255,0.15);
+            color:rgba(255,255,255,0.5); font-size:12px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 150ms;
+          }
+          #dilxhan-cr7-close:hover{background:rgba(255,255,255,0.12);color:#fff}
+
+          .cr7-title{
+            font-family:'Fraunces',Georgia,serif;
+            font-weight:900; font-size:24px; text-align:center;
+            color:#fff; letter-spacing:.06em; margin:0 0 2px;
+            text-shadow:0 0 30px rgba(255,200,50,0.5);
+          }
+          .cr7-sub{
+            text-align:center; font-size:10px; letter-spacing:.18em;
+            color:rgba(255,255,255,0.35); margin:0 0 22px; text-transform:uppercase;
+          }
+          .cr7-lbl{
+            font-size:10px; letter-spacing:.14em; text-transform:uppercase;
+            color:rgba(255,255,255,0.3); text-align:center; margin:0 0 10px;
+          }
+
+          .cr7-char-row{
+            display:flex; gap:12px; justify-content:center; margin-bottom:22px;
+          }
+          .cr7-char-btn{
+            flex:1; max-width:180px;
+            background:rgba(255,255,255,0.04);
+            border:1.5px solid rgba(255,255,255,0.1);
+            border-radius:14px; padding:16px 12px;
+            cursor:pointer; transition:all 200ms;
+            font-family:inherit; color:#aaa; text-align:center;
+          }
+          .cr7-char-btn:hover{border-color:rgba(255,255,255,0.25);background:rgba(255,255,255,0.07)}
+          .cr7-char-btn.sel-cr7{
+            border-color:#EE1111; color:#fff;
+            background:rgba(238,17,17,0.12);
+            box-shadow:0 0 24px rgba(238,17,17,0.2);
+          }
+          .cr7-char-btn.sel-messi{
+            border-color:#74ACDF; color:#fff;
+            background:rgba(116,172,223,0.12);
+            box-shadow:0 0 24px rgba(116,172,223,0.2);
+          }
+          .cr7-char-flag{font-size:28px; display:block; margin-bottom:6px}
+          .cr7-char-name{font-weight:700; font-size:15px; display:block; letter-spacing:.05em}
+          .cr7-char-num{
+            font-size:10px; letter-spacing:.1em;
+            color:rgba(255,255,255,0.35); display:block; margin-top:3px;
+          }
+
+          .cr7-diff-row{
+            display:flex; gap:8px; justify-content:center; margin-bottom:22px;
+          }
+          .cr7-diff-btn{
+            flex:1; max-width:110px; padding:10px 8px;
+            background:rgba(255,255,255,0.04);
+            border:1.5px solid rgba(255,255,255,0.1);
+            border-radius:10px; cursor:pointer; transition:all 180ms;
+            font-family:inherit; color:#888; text-align:center; font-size:12px;
+          }
+          .cr7-diff-btn:hover{border-color:rgba(255,255,255,0.25);color:#ccc}
+          .cr7-diff-btn.sel{border-color:#FFD700;color:#FFD700;background:rgba(255,215,0,0.08);box-shadow:0 0 16px rgba(255,215,0,0.12)}
+          .cr7-diff-hint{font-size:9px;color:rgba(255,255,255,0.3);display:block;margin-top:2px}
+
+          #dilxhan-cr7-start{
+            display:block; width:100%; padding:13px;
+            background:linear-gradient(135deg,#FFD700,#FFA500);
+            border:none; border-radius:11px;
+            color:#111; font-size:12px; font-weight:700;
+            letter-spacing:.2em; cursor:pointer;
+            transition:all 180ms; font-family:inherit;
+            box-shadow:0 3px 18px rgba(255,165,0,0.35);
+          }
+          #dilxhan-cr7-start:hover{transform:translateY(-1px);box-shadow:0 5px 24px rgba(255,165,0,0.45)}
+
+          #cr7-canvas{
+            display:block; width:100%; border-radius:10px;
+            cursor:crosshair; margin-bottom:12px;
+            box-shadow:0 0 0 1px rgba(255,255,255,0.08);
+          }
+
+          #cr7-scorebar{
+            display:flex; align-items:center; justify-content:space-between;
+            padding:8px 4px; margin-bottom:12px;
+          }
+          #cr7-dots{display:flex; gap:7px}
+          .cr7-dot{
+            width:12px; height:12px; border-radius:50%;
+            border:1.5px solid rgba(255,255,255,0.25);
+            background:transparent; transition:all 250ms;
+            display:inline-block;
+          }
+          .cr7-dot.g{background:#22cc55;border-color:#22cc55;box-shadow:0 0 8px rgba(34,204,85,0.6)}
+          .cr7-dot.s{background:#cc3322;border-color:#cc3322}
+          .cr7-dot.cur{border-color:#FFD700;box-shadow:0 0 8px rgba(255,215,0,0.6);animation:cr7-dot-pulse 700ms ease-in-out infinite}
+          @keyframes cr7-dot-pulse{0%,100%{opacity:1}50%{opacity:.4}}
+          #cr7-score-txt{font-size:13px;color:rgba(255,255,255,0.7);letter-spacing:.06em}
+          #cr7-score-num{
+            font-family:'Fraunces',Georgia,serif;
+            font-size:22px; font-weight:700; color:#FFD700;
+            text-shadow:0 0 16px rgba(255,215,0,0.5);
+          }
+
+          .cr7-action-row{display:flex;gap:8px}
+          .cr7-btn{
+            flex:1; padding:10px;
+            background:rgba(255,255,255,0.04);
+            border:1px solid rgba(255,255,255,0.12); border-radius:9px;
+            color:rgba(255,255,255,0.5); font-size:11px;
+            letter-spacing:.12em; cursor:pointer;
+            transition:all 160ms; font-family:inherit;
+          }
+          .cr7-btn:hover{border-color:rgba(255,255,255,0.3);color:#fff;background:rgba(255,255,255,0.08)}
+          .cr7-btn.primary{
+            background:linear-gradient(135deg,#FFD700,#FFA500);
+            border-color:transparent; color:#111; font-weight:700;
+            box-shadow:0 2px 12px rgba(255,165,0,0.3);
+          }
+          .cr7-btn.primary:hover{box-shadow:0 4px 18px rgba(255,165,0,0.45)}
+
+          #dilxhan-cr7-result{text-align:center;padding:8px 0}
+          .cr7-r-emoji{font-size:48px;display:block;margin-bottom:10px}
+          .cr7-r-title{
+            font-family:'Fraunces',Georgia,serif;
+            font-size:26px;font-weight:900;margin:0 0 4px;
+          }
+          .cr7-r-sub{font-size:11px;color:rgba(255,255,255,0.4);margin:0 0 20px;letter-spacing:.1em}
+          .cr7-r-stats{
+            display:flex;justify-content:center;
+            margin-bottom:22px; padding:14px;
+            background:rgba(255,255,255,0.04);border-radius:12px;
+            border:1px solid rgba(255,255,255,0.08);
+          }
+          .cr7-rs{text-align:center;padding:0 18px}
+          .cr7-rs+.cr7-rs{border-left:1px solid rgba(255,255,255,0.08)}
+          .cr7-rs-v{
+            font-family:'Fraunces',Georgia,serif;
+            font-size:26px;font-weight:700;color:#FFD700;display:block;
+          }
+          .cr7-rs-l{font-size:9px;letter-spacing:.12em;color:rgba(255,255,255,0.35);text-transform:uppercase}
+        `;
+        document.head.appendChild(s);
+      }
+
+      // ── DOM ──────────────────────────────────────────────────
+      const overlay = document.createElement('div');
+      overlay.id = 'dilxhan-cr7-overlay';
+      overlay.innerHTML = `
+        <div id="dilxhan-cr7-modal">
+          <button id="dilxhan-cr7-close">✕</button>
+
+          <!-- Setup -->
+          <div id="dilxhan-cr7-setup">
+            <p class="cr7-title">PENALTY</p>
+            <p class="cr7-sub">⚽ shootout ⚽</p>
+
+            <p class="cr7-lbl">Choose your player</p>
+            <div class="cr7-char-row">
+              <button class="cr7-char-btn sel-cr7" data-char="cr7">
+                <span class="cr7-char-flag">🇵🇹</span>
+                <span class="cr7-char-name">RONALDO</span>
+                <span class="cr7-char-num">CR7 · #7 · Portugal</span>
+              </button>
+              <button class="cr7-char-btn" data-char="messi">
+                <span class="cr7-char-flag">🇦🇷</span>
+                <span class="cr7-char-name">MESSI</span>
+                <span class="cr7-char-num">LEO · #10 · Argentina</span>
+              </button>
+            </div>
+
+            <p class="cr7-lbl">Difficulty</p>
+            <div class="cr7-diff-row">
+              <button class="cr7-diff-btn sel" data-diff="easy">Easy<span class="cr7-diff-hint">Keeper guesses randomly</span></button>
+              <button class="cr7-diff-btn" data-diff="medium">Medium<span class="cr7-diff-hint">40% read chance</span></button>
+              <button class="cr7-diff-btn" data-diff="hard">Hard<span class="cr7-diff-hint">65% read chance</span></button>
+            </div>
+
+            <button id="dilxhan-cr7-start">TAKE THE PENALTY</button>
+          </div>
+
+          <!-- Game -->
+          <div id="dilxhan-cr7-game" hidden>
+            <canvas id="cr7-canvas"></canvas>
+            <div id="cr7-scorebar">
+              <div id="cr7-dots"></div>
+              <div>
+                <span id="cr7-score-txt">Goals: </span>
+                <span id="cr7-score-num">0</span>
+                <span id="cr7-score-txt"> / 5</span>
+              </div>
+            </div>
+            <div class="cr7-action-row">
+              <button class="cr7-btn" id="cr7-quit">← Change Player</button>
+              <button class="cr7-btn" id="cr7-renew">↺ New Game</button>
+            </div>
+          </div>
+
+          <!-- Result -->
+          <div id="dilxhan-cr7-result" hidden></div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      // ── Helpers ──────────────────────────────────────────────
+      const $ = id => document.getElementById(id);
+      const show = id => $(id).hidden = false;
+      const hide = id => $(id).hidden = true;
+      function easeOut(t) { return 1 - (1-t)*(1-t); }
+      function lerp(a,b,t) { return a + (b-a)*t; }
+
+      // ── Character configs ─────────────────────────────────────
+      const CHARS = {
+        cr7: {
+          name:'RONALDO', num:'7', flag:'🇵🇹',
+          jersey:'#EE1111', shorts:'#006400', hair:'#1A1A1A', skin:'#C8956A',
+          celebText:'SIUUUU!', celebColor:'#FFD700',
+          winMsg:'SIUUUUU! WINNER!', loseMsg:'We go again.',
+          confetti:['#EE1111','#009900','#FFD700','#FFFFFF','#CC0000'],
+        },
+        messi: {
+          name:'MESSI', num:'10', flag:'🇦🇷',
+          jersey:'#74ACDF', shorts:'#1A237E', hair:'#2C1810', skin:'#C8A07A',
+          celebText:'GOLAZO!', celebColor:'#74ACDF',
+          winMsg:'¡CAMPEÓN!', loseMsg:'Next time, Leo.',
+          confetti:['#74ACDF','#FFFFFF','#F5C518','#ADD8E6','#000080'],
+        },
+      };
+
+      // ── Game state ────────────────────────────────────────────
+      let char = 'cr7', diff = 'easy';
+      let canvas, ctx, W, H;
+      let GOAL_LEFT, GOAL_RIGHT, GOAL_TOP, GOAL_BOTTOM, GOAL_W, GOAL_H;
+      let BALL_X, BALL_Y, BALL_R, KEEPER_H, KEEPER_Y, PLAYER_H, PLAYER_Y;
+
+      let penalties, currentPen, playerScore, gamePhase;
+      let dragStart, dragCurrent;
+      let ballPos, ballTarget, ballCtrl;
+      let keeperDiveDir, keeperStartX;
+      let shotResult, shotZone;
+      let phaseStart;
+      let particles = [];
+      let rafId = null;
+
+      const BALL_ANIM  = 620;
+      const CELEB_DUR  = 1900;
+      const SAVE_DUR   = 1400;
+
+      // ── Setup wiring ──────────────────────────────────────────
+      overlay.querySelectorAll('[data-char]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          overlay.querySelectorAll('[data-char]').forEach(b =>
+            b.classList.remove('sel-cr7','sel-messi'));
+          char = btn.dataset.char;
+          btn.classList.add(char === 'cr7' ? 'sel-cr7' : 'sel-messi');
+        });
+      });
+      overlay.querySelectorAll('[data-diff]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          overlay.querySelectorAll('[data-diff]').forEach(b => b.classList.remove('sel'));
+          btn.classList.add('sel');
+          diff = btn.dataset.diff;
+        });
+      });
+      $('dilxhan-cr7-start').addEventListener('click', startGame);
+      $('cr7-quit').addEventListener('click', () => {
+        stopGame();
+        hide('dilxhan-cr7-game');
+        show('dilxhan-cr7-setup');
+      });
+      $('cr7-renew').addEventListener('click', startGame);
+
+      // ── Start / stop ──────────────────────────────────────────
+      function stopGame() {
+        if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+        removeInputListeners();
+      }
+
+      function startGame() {
+        stopGame();
+        hide('dilxhan-cr7-setup');
+        hide('dilxhan-cr7-result');
+        show('dilxhan-cr7-game');
+
+        // Canvas sizing — must happen after game screen is visible
+        canvas = $('cr7-canvas');
+        W = canvas.width  = canvas.clientWidth  || 460;
+        H = canvas.height = Math.round(W * 0.63);
+        ctx = canvas.getContext('2d');
+
+        // Layout constants
+        GOAL_LEFT   = W * 0.15;
+        GOAL_RIGHT  = W * 0.85;
+        GOAL_TOP    = H * 0.08;
+        GOAL_BOTTOM = H * 0.52;
+        GOAL_W      = GOAL_RIGHT - GOAL_LEFT;
+        GOAL_H      = GOAL_BOTTOM - GOAL_TOP;
+        BALL_R      = Math.max(7, W * 0.022);
+        BALL_X      = W * 0.50;
+        BALL_Y      = H * 0.75;
+        KEEPER_H    = H * 0.20;
+        KEEPER_Y    = GOAL_TOP + GOAL_H * 0.75;
+        PLAYER_H    = H * 0.22;
+        PLAYER_Y    = H - PLAYER_H * 0.05;
+
+        // Game state reset
+        penalties   = Array(5).fill(null).map(() => ({ result:null }));
+        currentPen  = 0;
+        playerScore = 0;
+        particles   = [];
+        dragStart   = null;
+        dragCurrent = null;
+        ballPos     = { x:BALL_X, y:BALL_Y };
+        gamePhase   = 'idle';
+
+        updateScoreboard();
+        addInputListeners();
+        rafId = requestAnimationFrame(gameLoop);
+      }
+
+      // ── Scoreboard ────────────────────────────────────────────
+      function updateScoreboard() {
+        $('cr7-score-num').textContent = playerScore;
+        const dotsEl = $('cr7-dots');
+        dotsEl.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+          const d = document.createElement('span');
+          d.className = 'cr7-dot';
+          const r = penalties[i].result;
+          if (r === 'goal') d.classList.add('g');
+          else if (r === 'save') d.classList.add('s');
+          else if (i === currentPen) d.classList.add('cur');
+          dotsEl.appendChild(d);
+        }
+      }
+
+      // ── Input ─────────────────────────────────────────────────
+      function getPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const sx = W / rect.width, sy = H / rect.height;
+        const src = e.touches ? e.touches[0] : e;
+        return { x:(src.clientX - rect.left)*sx, y:(src.clientY - rect.top)*sy };
+      }
+      function nearBall(x, y) {
+        const dx = x-BALL_X, dy = y-BALL_Y;
+        return Math.sqrt(dx*dx+dy*dy) < BALL_R * 5;
+      }
+      function onDown(e) {
+        if (gamePhase !== 'idle') return;
+        e.preventDefault();
+        const p = getPos(e);
+        if (!nearBall(p.x, p.y)) return;
+        dragStart = p; dragCurrent = p;
+        gamePhase = 'dragging';
+      }
+      function onMove(e) {
+        if (gamePhase !== 'dragging') return;
+        e.preventDefault();
+        dragCurrent = getPos(e);
+      }
+      function onUp(e) {
+        if (gamePhase !== 'dragging') return;
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const sx = W/rect.width, sy = H/rect.height;
+        let ex, ey;
+        if (e.changedTouches) {
+          ex = (e.changedTouches[0].clientX - rect.left)*sx;
+          ey = (e.changedTouches[0].clientY - rect.top)*sy;
+        } else { ex = dragCurrent.x; ey = dragCurrent.y; }
+        shotZone = detectZone(BALL_X, BALL_Y, ex, ey);
+        fireShot();
+      }
+      function addInputListeners() {
+        canvas.addEventListener('mousedown',  onDown);
+        canvas.addEventListener('mousemove',  onMove);
+        canvas.addEventListener('mouseup',    onUp);
+        canvas.addEventListener('touchstart', onDown, { passive:false });
+        canvas.addEventListener('touchmove',  onMove, { passive:false });
+        canvas.addEventListener('touchend',   onUp,   { passive:false });
+      }
+      function removeInputListeners() {
+        if (!canvas) return;
+        canvas.removeEventListener('mousedown',  onDown);
+        canvas.removeEventListener('mousemove',  onMove);
+        canvas.removeEventListener('mouseup',    onUp);
+        canvas.removeEventListener('touchstart', onDown);
+        canvas.removeEventListener('touchmove',  onMove);
+        canvas.removeEventListener('touchend',   onUp);
+      }
+
+      // ── Zone detection ────────────────────────────────────────
+      function detectZone(bx, by, ex, ey) {
+        if (ey >= by - 15) return { col:1, row:1 }; // barely moved up
+        const dx = ex - bx, dy = ey - by;
+        const midY = GOAL_TOP + GOAL_H * 0.5;
+        const t = (midY - by) / dy;
+        const px = bx + t * dx;
+        const rel = (px - GOAL_LEFT) / GOAL_W;
+        const col = rel < 0.33 ? 0 : rel < 0.67 ? 1 : 2;
+        const row = ey < midY ? 0 : 1;
+        return { col:Math.max(0,Math.min(2,col)), row };
+      }
+
+      // ── Shot ─────────────────────────────────────────────────
+      function fireShot() {
+        gamePhase = 'shooting';
+        dragStart = dragCurrent = null;
+
+        keeperDiveDir = getKeeperDive(shotZone.col);
+        keeperStartX  = W * 0.5;
+
+        ballTarget = {
+          x: GOAL_LEFT + (shotZone.col + 0.5) * GOAL_W / 3,
+          y: shotZone.row === 0
+            ? GOAL_TOP + GOAL_H * 0.22
+            : GOAL_TOP + GOAL_H * 0.70,
+        };
+        ballCtrl = {
+          x: (BALL_X + ballTarget.x) / 2 + (ballTarget.x - BALL_X) * 0.1,
+          y: (BALL_Y + ballTarget.y) / 2 - H * 0.10,
+        };
+
+        shotResult = resolveShot(shotZone, keeperDiveDir);
+        phaseStart = performance.now();
+      }
+
+      function getKeeperDive(col) {
+        const r = Math.random();
+        if (diff === 'easy')   return Math.floor(Math.random()*3);
+        if (diff === 'medium') return r < 0.40 ? col : Math.floor(Math.random()*3);
+        /* hard */             return r < 0.65 ? col : Math.floor(Math.random()*3);
+      }
+
+      function resolveShot(zone, keeperCol) {
+        if (zone.col !== keeperCol) return 'goal';
+        if (zone.row === 0) return Math.random() < 0.55 ? 'goal' : 'save';
+        return 'save';
+      }
+
+      // ── Particles ─────────────────────────────────────────────
+      function spawnParticles(x, y, count, colors) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const sp = 2 + Math.random() * 6;
+          particles.push({
+            x, y,
+            vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 2.5,
+            color: colors[Math.floor(Math.random()*colors.length)],
+            alpha:1, r:2+Math.random()*4,
+          });
+        }
+      }
+
+      function updateParticles() {
+        for (let i = particles.length-1; i >= 0; i--) {
+          const p = particles[i];
+          p.vy += 0.14; p.x += p.vx; p.y += p.vy;
+          p.alpha -= 0.016;
+          if (p.alpha <= 0) { particles.splice(i,1); continue; }
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = p.alpha;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ── Draw: background ──────────────────────────────────────
+      function drawBg() {
+        // Stands
+        const sg = ctx.createLinearGradient(0,0,0,H*0.42);
+        sg.addColorStop(0,'#12103a'); sg.addColorStop(1,'#1e1448');
+        ctx.fillStyle = sg; ctx.fillRect(0,0,W,H*0.42);
+        // Crowd dots
+        for (let cx2=8; cx2<W; cx2+=16) {
+          for (let cy2=4; cy2<H*0.40; cy2+=12) {
+            if (Math.random()<0.55) {
+              ctx.beginPath();
+              ctx.arc(cx2, cy2, 2.2, 0, Math.PI*2);
+              ctx.fillStyle = `rgba(${80+Math.random()*80},${60+Math.random()*60},${120+Math.random()*80},0.6)`;
+              ctx.fill();
+            }
+          }
+        }
+        // Floodlights glow
+        ['#3333aa','#aa3333','#33aa33'].forEach((c,i) => {
+          const gx = W*(0.15+i*0.35);
+          const grad = ctx.createRadialGradient(gx,0,0,gx,0,H*0.25);
+          grad.addColorStop(0,c.replace(')',',0.07)')); grad.addColorStop(1,'rgba(0,0,0,0)');
+          ctx.fillStyle = grad; ctx.fillRect(0,0,W,H*0.42);
+        });
+        // Grass
+        const gg = ctx.createLinearGradient(0,H*0.40,0,H);
+        gg.addColorStop(0,'#1e6b1e'); gg.addColorStop(1,'#154f15');
+        ctx.fillStyle = gg; ctx.fillRect(0,H*0.40,W,H*0.60);
+        // Grass stripes
+        for (let sx=0; sx<W; sx+=W*0.10) {
+          ctx.fillStyle='rgba(0,0,0,0.07)';
+          ctx.fillRect(sx,H*0.40,W*0.05,H*0.60);
+        }
+        // Penalty box
+        const bL=W*0.07,bR=W*0.93,bT=H*0.52,bB=H;
+        ctx.strokeStyle='rgba(255,255,255,0.38)';
+        ctx.lineWidth=1.5;
+        ctx.strokeRect(bL,bT,bR-bL,bB-bT);
+        // Penalty spot
+        ctx.beginPath();
+        ctx.arc(BALL_X,BALL_Y,2.5,0,Math.PI*2);
+        ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.fill();
+      }
+
+      // ── Draw: goal ────────────────────────────────────────────
+      function drawGoal() {
+        // Net
+        ctx.strokeStyle='rgba(255,255,255,0.1)'; ctx.lineWidth=0.8;
+        for (let r=0;r<=10;r++) {
+          const ny=GOAL_TOP+r*GOAL_H/10;
+          ctx.beginPath(); ctx.moveTo(GOAL_LEFT,ny); ctx.lineTo(GOAL_RIGHT,ny); ctx.stroke();
+        }
+        for (let c=0;c<=14;c++) {
+          const nx=GOAL_LEFT+c*GOAL_W/14;
+          ctx.beginPath(); ctx.moveTo(nx,GOAL_TOP); ctx.lineTo(nx,GOAL_BOTTOM); ctx.stroke();
+        }
+        // Goal flash on score
+        if (gamePhase==='celebrating') {
+          const t = Math.min(1,(performance.now()-phaseStart)/500);
+          ctx.fillStyle=`rgba(255,255,120,${(1-t)*0.18})`;
+          ctx.fillRect(GOAL_LEFT,GOAL_TOP,GOAL_W,GOAL_H);
+        }
+        // Posts
+        const pw=5;
+        ctx.fillStyle='#FFFFFF';
+        ctx.fillRect(GOAL_LEFT-pw, GOAL_TOP, pw, GOAL_H+pw);   // left post
+        ctx.fillRect(GOAL_RIGHT,   GOAL_TOP, pw, GOAL_H+pw);   // right post
+        ctx.fillRect(GOAL_LEFT-pw, GOAL_TOP, GOAL_W+pw*2, pw); // crossbar
+      }
+
+      // ── Draw: zone hint ───────────────────────────────────────
+      function drawZoneHint() {
+        if (gamePhase !== 'dragging' || !dragCurrent) return;
+        const z = detectZone(BALL_X, BALL_Y, dragCurrent.x, dragCurrent.y);
+        const zx = GOAL_LEFT + z.col * GOAL_W / 3;
+        const zy = z.row === 0 ? GOAL_TOP : GOAL_TOP + GOAL_H*0.5;
+        ctx.fillStyle = 'rgba(255,255,100,0.14)';
+        ctx.fillRect(zx+2, zy+2, GOAL_W/3-4, GOAL_H/2-4);
+      }
+
+      // ── Draw: keeper ──────────────────────────────────────────
+      function drawKeeper() {
+        const now = performance.now();
+        let kx = W*0.5;
+        let diveT = 0, tiltAngle = 0;
+
+        if (gamePhase==='shooting'||gamePhase==='celebrating'||gamePhase==='save') {
+          diveT = Math.min(1,(now-phaseStart)/BALL_ANIM);
+          const diveTargetX = keeperDiveDir===0
+            ? GOAL_LEFT + GOAL_W*0.16
+            : keeperDiveDir===2
+            ? GOAL_RIGHT - GOAL_W*0.16
+            : W*0.5;
+          kx = lerp(W*0.5, diveTargetX, easeOut(diveT));
+          if (keeperDiveDir!==1) tiltAngle = (keeperDiveDir===0?-1:1)*diveT*0.38;
+        }
+
+        const h = KEEPER_H;
+        ctx.save();
+        ctx.translate(kx, KEEPER_Y);
+        ctx.rotate(tiltAngle);
+
+        // Legs
+        ctx.strokeStyle='#222'; ctx.lineWidth=h*0.07; ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(-h*0.09,0); ctx.lineTo(-h*0.09,h*0.42); ctx.moveTo(-h*0.09,h*0.42); ctx.lineTo(-h*0.12,h*0.44);
+        ctx.moveTo( h*0.09,0); ctx.lineTo( h*0.09,h*0.42); ctx.moveTo( h*0.09,h*0.42); ctx.lineTo( h*0.12,h*0.44);
+        ctx.stroke();
+
+        // Body
+        ctx.fillStyle='#FFD700';
+        ctx.fillRect(-h*0.16,-h*0.52,h*0.32,h*0.52);
+        ctx.fillStyle='rgba(0,0,0,0.4)';
+        ctx.font=`bold ${Math.round(h*0.14)}px sans-serif`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('GK',0,-h*0.28);
+
+        // Arms + gloves
+        ctx.strokeStyle='#FFD700'; ctx.lineWidth=h*0.07; ctx.lineCap='round';
+        if (diveT>0.1 && keeperDiveDir!==1) {
+          const d = keeperDiveDir===0?-1:1;
+          ctx.beginPath();
+          ctx.moveTo(d*h*0.16,-h*0.38);
+          ctx.lineTo(d*h*0.52,-h*0.20+diveT*h*0.12);
+          ctx.moveTo(-d*h*0.16,-h*0.38);
+          ctx.lineTo(-d*h*0.32,-h*0.28);
+          ctx.stroke();
+          ctx.fillStyle='#FFA500';
+          ctx.beginPath();
+          ctx.arc(d*h*0.52,-h*0.20+diveT*h*0.12,h*0.08,0,Math.PI*2);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.16,-h*0.38); ctx.lineTo(-h*0.38,-h*0.16);
+          ctx.moveTo( h*0.16,-h*0.38); ctx.lineTo( h*0.38,-h*0.16);
+          ctx.stroke();
+          ctx.fillStyle='#FFA500';
+          ctx.beginPath(); ctx.arc(-h*0.38,-h*0.16,h*0.08,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc( h*0.38,-h*0.16,h*0.08,0,Math.PI*2); ctx.fill();
+        }
+
+        // Head
+        ctx.fillStyle='#F5CBA7';
+        ctx.beginPath(); ctx.arc(0,-h*0.65,h*0.14,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#5C3D2E';
+        ctx.beginPath(); ctx.arc(0,-h*0.73,h*0.12,Math.PI,0); ctx.fill();
+        ctx.restore();
+      }
+
+      // ── Draw: player ──────────────────────────────────────────
+      function drawPlayer() {
+        const now = performance.now();
+        const cfg = CHARS[char];
+        const h = PLAYER_H;
+        let kickT=0, jumpY=0, armAngle=0;
+
+        if (gamePhase==='shooting') {
+          kickT = Math.min(1,(now-phaseStart)/BALL_ANIM);
+        } else if (gamePhase==='celebrating') {
+          const et = now-phaseStart;
+          jumpY = Math.sin(Math.min(1,et/600)*Math.PI) * h*0.32;
+          armAngle = Math.PI*0.75*Math.min(1,et/500);
+        } else if (gamePhase==='save') {
+          armAngle = -0.25; // arms drop / disappointed
+        }
+
+        ctx.save();
+        ctx.translate(W*0.5, PLAYER_Y - jumpY);
+
+        // Legs
+        ctx.strokeStyle=cfg.shorts; ctx.lineWidth=h*0.07; ctx.lineCap='round';
+        if (kickT>0.2 && gamePhase==='shooting') {
+          const kt = Math.min(1,(kickT-0.2)/0.55);
+          // Standing leg
+          ctx.beginPath();
+          ctx.moveTo(-h*0.09,0); ctx.lineTo(-h*0.09,h*0.40); ctx.moveTo(-h*0.09,h*0.40); ctx.lineTo(-h*0.11,h*0.44);
+          ctx.stroke();
+          // Kicking leg
+          ctx.save();
+          ctx.translate(h*0.09,h*0.22);
+          ctx.rotate(-Math.PI*0.55*kt);
+          ctx.beginPath();
+          ctx.moveTo(0,-h*0.22); ctx.lineTo(0,h*0.18);
+          ctx.stroke();
+          ctx.fillStyle='#111';
+          ctx.beginPath(); ctx.ellipse(0,h*0.20,h*0.09,h*0.045,0,0,Math.PI*2); ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.09,0); ctx.lineTo(-h*0.09,h*0.40); ctx.moveTo(-h*0.09,h*0.40); ctx.lineTo(-h*0.11,h*0.44);
+          ctx.moveTo( h*0.09,0); ctx.lineTo( h*0.09,h*0.40); ctx.moveTo( h*0.09,h*0.40); ctx.lineTo( h*0.11,h*0.44);
+          ctx.stroke();
+        }
+
+        // Body
+        ctx.fillStyle = cfg.jersey;
+        ctx.fillRect(-h*0.16,-h*0.52,h*0.32,h*0.52);
+        // Argentina stripes
+        if (char==='messi') {
+          ctx.fillStyle='rgba(255,255,255,0.45)';
+          for (let sx=-h*0.13; sx<h*0.13; sx+=h*0.09) ctx.fillRect(sx,-h*0.52,h*0.04,h*0.52);
+        }
+        // Number
+        ctx.fillStyle='#FFFFFF';
+        ctx.font=`bold ${Math.round(h*0.16)}px sans-serif`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(cfg.num,0,-h*0.28);
+
+        // Arms
+        ctx.strokeStyle=cfg.jersey; ctx.lineWidth=h*0.065; ctx.lineCap='round';
+        if (armAngle!==0) {
+          // Celebration or disappointment arms
+          if (gamePhase==='celebrating') {
+            if (char==='cr7') {
+              // CR7: right arm punches up (SIUUU)
+              ctx.beginPath();
+              ctx.moveTo( h*0.16,-h*0.38);
+              ctx.lineTo( h*0.16+Math.sin(armAngle)*h*0.24,-h*0.38-Math.cos(armAngle)*h*0.24);
+              ctx.moveTo(-h*0.16,-h*0.38); ctx.lineTo(-h*0.34,-h*0.18);
+              ctx.stroke();
+            } else {
+              // Messi: both arms rise pointing to sky
+              ctx.beginPath();
+              ctx.moveTo(-h*0.16,-h*0.38);
+              ctx.lineTo(-h*0.16-Math.sin(armAngle*0.5)*h*0.22,-h*0.38-Math.cos(armAngle)*h*0.22);
+              ctx.moveTo( h*0.16,-h*0.38);
+              ctx.lineTo( h*0.16+Math.sin(armAngle*0.5)*h*0.22,-h*0.38-Math.cos(armAngle)*h*0.22);
+              ctx.stroke();
+            }
+          } else {
+            // Save — arms droop
+            ctx.beginPath();
+            ctx.moveTo(-h*0.16,-h*0.38); ctx.lineTo(-h*0.34,-h*0.10);
+            ctx.moveTo( h*0.16,-h*0.38); ctx.lineTo( h*0.34,-h*0.10);
+            ctx.stroke();
+          }
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-h*0.16,-h*0.38); ctx.lineTo(-h*0.34,-h*0.18);
+          ctx.moveTo( h*0.16,-h*0.38); ctx.lineTo( h*0.34,-h*0.18);
+          ctx.stroke();
+        }
+
+        // Head
+        ctx.fillStyle=cfg.skin;
+        ctx.beginPath(); ctx.arc(0,-h*0.65,h*0.14,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle=cfg.hair;
+        ctx.beginPath(); ctx.arc(0,-h*0.73,h*0.12,Math.PI,0); ctx.fill();
+        if (char==='cr7') { // CR7 undercut
+          ctx.fillRect(-h*0.12,-h*0.73,h*0.24,h*0.05);
+        }
+        ctx.restore();
+      }
+
+      // ── Draw: ball ────────────────────────────────────────────
+      function drawBall() {
+        const now = performance.now();
+        let bx=BALL_X, by=BALL_Y, spin=0;
+
+        if (gamePhase==='shooting'||gamePhase==='celebrating'||gamePhase==='save') {
+          const t = Math.min(1,(now-phaseStart)/BALL_ANIM);
+          const mt=1-t;
+          bx = mt*mt*BALL_X + 2*mt*t*ballCtrl.x + t*t*ballTarget.x;
+          by = mt*mt*BALL_Y + 2*mt*t*ballCtrl.y + t*t*ballTarget.y;
+          spin = t * Math.PI * 5;
+        }
+        ballPos = { x:bx, y:by };
+
+        // Shadow
+        ctx.beginPath();
+        ctx.ellipse(bx,by+BALL_R*0.9,BALL_R*0.75,BALL_R*0.22,0,0,Math.PI*2);
+        ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fill();
+
+        ctx.save();
+        ctx.translate(bx,by); ctx.rotate(spin);
+        const bg = ctx.createRadialGradient(-BALL_R*0.3,-BALL_R*0.3,1,0,0,BALL_R);
+        bg.addColorStop(0,'#FFFFFF'); bg.addColorStop(1,'#CCCCCC');
+        ctx.beginPath(); ctx.arc(0,0,BALL_R,0,Math.PI*2);
+        ctx.fillStyle=bg; ctx.fill();
+        ctx.strokeStyle='#444'; ctx.lineWidth=0.6; ctx.stroke();
+        // Seam lines
+        ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=0.9;
+        for (let i=0; i<5; i++) {
+          const a=(i/5)*Math.PI*2;
+          ctx.beginPath();
+          ctx.moveTo(0,0);
+          ctx.lineTo(Math.cos(a)*BALL_R*0.55,Math.sin(a)*BALL_R*0.55);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // ── Draw: drag arrow ──────────────────────────────────────
+      function drawDragArrow() {
+        if (gamePhase!=='dragging'||!dragCurrent) return;
+        const dx=dragCurrent.x-BALL_X, dy=dragCurrent.y-BALL_Y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if (dist<12) return;
+        const angle=Math.atan2(dy,dx);
+        const len=Math.min(dist, H*0.22);
+        const ex=BALL_X+Math.cos(angle)*len, ey=BALL_Y+Math.sin(angle)*len;
+        ctx.save();
+        ctx.strokeStyle='rgba(255,255,180,0.75)'; ctx.lineWidth=2.5;
+        ctx.setLineDash([6,5]);
+        ctx.beginPath(); ctx.moveTo(BALL_X,BALL_Y); ctx.lineTo(ex,ey); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle='rgba(255,255,180,0.85)';
+        ctx.translate(ex,ey); ctx.rotate(angle);
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-10,-5); ctx.lineTo(-10,5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+
+      // ── Draw: prompt ──────────────────────────────────────────
+      function drawPrompt() {
+        if (gamePhase!=='idle') return;
+        const pulse=0.5+0.5*Math.sin(performance.now()*0.003);
+        ctx.beginPath();
+        ctx.arc(BALL_X,BALL_Y,BALL_R*(2.2+pulse*0.8),0,Math.PI*2);
+        ctx.fillStyle=`rgba(255,255,120,${0.07+pulse*0.08})`; ctx.fill();
+        ctx.fillStyle='rgba(255,255,255,0.65)';
+        ctx.font=`${H*0.042}px sans-serif`;
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('Drag from the ball to shoot',W*0.5,H*0.93);
+      }
+
+      // ── Draw: overlay text (goal/save) ────────────────────────
+      function drawResultText() {
+        const cfg = CHARS[char];
+        if (gamePhase==='celebrating') {
+          const t=Math.min(1,(performance.now()-phaseStart)/800);
+          const alpha=t>0.75?1-(t-0.75)/0.25:1;
+          ctx.save();
+          ctx.globalAlpha=alpha;
+          ctx.translate(W*0.5,H*0.34);
+          ctx.scale(easeOut(Math.min(1,t*2.5)),easeOut(Math.min(1,t*2.5)));
+          ctx.font=`bold ${H*0.13}px 'Fraunces',Georgia,serif`;
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillStyle=cfg.celebColor;
+          ctx.shadowColor=cfg.celebColor; ctx.shadowBlur=22;
+          ctx.fillText(cfg.celebText,0,0);
+          ctx.shadowBlur=0; ctx.restore();
+        } else if (gamePhase==='save') {
+          const t=Math.min(1,(performance.now()-phaseStart)/700);
+          const alpha=t>0.75?1-(t-0.75)/0.25:1;
+          ctx.save();
+          ctx.globalAlpha=alpha;
+          ctx.font=`bold ${H*0.10}px 'Fraunces',Georgia,serif`;
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillStyle='#FF4444'; ctx.shadowColor='#FF4444'; ctx.shadowBlur=18;
+          ctx.fillText('SAVED!',W*0.5,H*0.34);
+          ctx.shadowBlur=0; ctx.restore();
+        }
+      }
+
+      // ── Draw: score strip ─────────────────────────────────────
+      function drawScoreStrip() {
+        ctx.fillStyle='rgba(0,0,0,0.5)';
+        ctx.fillRect(0,0,W,H*0.072);
+        const cfg=CHARS[char];
+        ctx.fillStyle='#FFFFFF';
+        ctx.font=`bold ${H*0.042}px sans-serif`;
+        ctx.textAlign='left'; ctx.textBaseline='middle';
+        ctx.fillText(`${cfg.flag} ${cfg.name} · #${cfg.num}`,W*0.03,H*0.036);
+        ctx.textAlign='right';
+        ctx.fillStyle='#FFD700';
+        ctx.fillText(`⚽ ${playerScore}  •  Pen ${Math.min(currentPen+1,5)}/5`,W*0.97,H*0.036);
+      }
+
+      // ── Game loop ─────────────────────────────────────────────
+      function gameLoop() {
+        const now = performance.now();
+        ctx.clearRect(0,0,W,H);
+
+        // Phase transitions
+        if (gamePhase==='shooting' && now-phaseStart >= BALL_ANIM) {
+          penalties[currentPen].result = shotResult;
+          if (shotResult==='goal') {
+            playerScore++;
+            spawnParticles(ballTarget.x,ballTarget.y,55,CHARS[char].confetti);
+          }
+          phaseStart = now;
+          gamePhase = shotResult==='goal' ? 'celebrating' : 'save';
+          updateScoreboard();
+        } else if (gamePhase==='celebrating' && now-phaseStart>=CELEB_DUR) {
+          advance();
+        } else if (gamePhase==='save' && now-phaseStart>=SAVE_DUR) {
+          advance();
+        }
+
+        // Render
+        drawBg(); drawGoal(); drawZoneHint();
+        updateParticles();
+        drawKeeper(); drawBall(); drawPlayer();
+        drawDragArrow(); drawResultText(); drawPrompt();
+        drawScoreStrip();
+
+        if (gamePhase!=='ended') rafId = requestAnimationFrame(gameLoop);
+      }
+
+      // ── Advance / end ─────────────────────────────────────────
+      function advance() {
+        currentPen++;
+        particles = [];
+        ballPos = { x:BALL_X, y:BALL_Y };
+
+        // Early win
+        if (playerScore >= 3) { endGame('win'); return; }
+        // All 5 done
+        if (currentPen >= 5) { endGame(playerScore>=3?'win':'lose'); return; }
+
+        gamePhase = 'idle';
+        updateScoreboard();
+      }
+
+      function endGame(outcome) {
+        gamePhase = 'ended';
+        cancelAnimationFrame(rafId); rafId = null;
+        removeInputListeners();
+        const isWin = outcome==='win';
+        const cfg   = CHARS[char];
+
+        if (isWin) {
+          // Final celebration: keep drawing with big confetti for 1.8s
+          let fr;
+          const fs = performance.now();
+          for (let i=0; i<3; i++) {
+            setTimeout(() => {
+              for (let j=0; j<80; j++) {
+                const a=Math.random()*Math.PI*2, sp=3+Math.random()*8;
+                particles.push({
+                  x:W*(0.2+Math.random()*0.6), y:H*0.3,
+                  vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-5,
+                  color:cfg.confetti[Math.floor(Math.random()*cfg.confetti.length)],
+                  alpha:1, r:3+Math.random()*5,
+                });
+              }
+            }, i*350);
+          }
+          function finalDraw() {
+            ctx.clearRect(0,0,W,H);
+            drawBg(); drawGoal();
+            updateParticles(); drawPlayer();
+            const ft = Math.min(1,(performance.now()-fs)/600);
+            ctx.save();
+            ctx.globalAlpha=easeOut(ft);
+            ctx.font=`bold ${H*0.14}px 'Fraunces',Georgia,serif`;
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.fillStyle=cfg.celebColor;
+            ctx.shadowColor=cfg.celebColor; ctx.shadowBlur=30;
+            ctx.fillText(cfg.winMsg,W*0.5,H*0.38);
+            ctx.shadowBlur=0;
+            ctx.font=`${H*0.054}px sans-serif`;
+            ctx.fillStyle='#FFFFFF';
+            ctx.fillText(`${cfg.flag} ${playerScore} - ${currentPen-playerScore} Goals ${cfg.flag}`,W*0.5,H*0.56);
+            ctx.restore();
+            if (performance.now()-fs < 1800) fr = requestAnimationFrame(finalDraw);
+            else { cancelAnimationFrame(fr); showResult(isWin); }
+          }
+          rafId = requestAnimationFrame(finalDraw);
+        } else {
+          setTimeout(() => showResult(isWin), 500);
+        }
+      }
+
+      function showResult(isWin) {
+        hide('dilxhan-cr7-game');
+        const cfg = CHARS[char];
+        $('dilxhan-cr7-result').innerHTML = `
+          <span class="cr7-r-emoji">${isWin ? '🏆' : '😔'}</span>
+          <p class="cr7-r-title" style="color:${isWin?cfg.celebColor:'#888'}">
+            ${isWin ? cfg.winMsg : cfg.loseMsg}
+          </p>
+          <p class="cr7-r-sub">${cfg.flag} ${cfg.name} · ${diff.toUpperCase()} difficulty</p>
+          <div class="cr7-r-stats">
+            <div class="cr7-rs">
+              <span class="cr7-rs-v">${playerScore}</span>
+              <span class="cr7-rs-l">Goals</span>
+            </div>
+            <div class="cr7-rs">
+              <span class="cr7-rs-v">${currentPen - playerScore}</span>
+              <span class="cr7-rs-l">Saved</span>
+            </div>
+            <div class="cr7-rs">
+              <span class="cr7-rs-v">5</span>
+              <span class="cr7-rs-l">Penalties</span>
+            </div>
+          </div>
+          <div class="cr7-action-row">
+            <button class="cr7-btn" id="cr7-back">← Change Player</button>
+            <button class="cr7-btn primary" id="cr7-again">↺ Play Again</button>
+          </div>
+        `;
+        show('dilxhan-cr7-result');
+        $('cr7-back').addEventListener('click', () => {
+          hide('dilxhan-cr7-result'); show('dilxhan-cr7-setup');
+        });
+        $('cr7-again').addEventListener('click', startGame);
+      }
+
+      // ── Cleanup ───────────────────────────────────────────────
+      function cleanup() {
+        stopGame();
+        overlay.remove();
+        done();
+      }
+      $('dilxhan-cr7-close').addEventListener('click', cleanup);
+      overlay.addEventListener('click', e => { if (e.target===overlay) cleanup(); });
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════
   //  ── TEMPLATE — copy this block to add a new animation ────
   //
   //  Steps:
