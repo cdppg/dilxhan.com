@@ -3326,12 +3326,22 @@
         if (armAngle!==0) {
           // Celebration or disappointment arms
           if (gamePhase==='celebrating') {
-            if (char==='cr7') {
-              // CR7: right arm punches up (SIUUU)
+            if (char === 'cr7') {
+              const t = Math.min(1, (now - phaseStart) / 500);
+
+              const armX = h * 0.34 * t;
+              const armY = -h * 0.38 - Math.sin(t * Math.PI) * h * 0.25;
+
+              // Right arm (SIUUU style)
               ctx.beginPath();
-              ctx.moveTo( h*0.16,-h*0.38);
-              ctx.lineTo( h*0.16+Math.sin(armAngle)*h*0.24,-h*0.38-Math.cos(armAngle)*h*0.24);
-              ctx.moveTo(-h*0.16,-h*0.38); ctx.lineTo(-h*0.34,-h*0.18);
+              ctx.moveTo(h*0.16, -h*0.38);
+              ctx.lineTo(h*0.16 + armX, armY);
+              ctx.stroke();
+
+              // Left arm (mirrored same motion)
+              ctx.beginPath();
+              ctx.moveTo(-h*0.16, -h*0.38);
+              ctx.lineTo(-h*0.16 - armX, armY);
               ctx.stroke();
             } else {
               // Messi: both arms rise toward sky, one finger pointing up from each hand
