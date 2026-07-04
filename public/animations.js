@@ -3329,8 +3329,8 @@
             if (char === 'cr7') {
               const t = Math.min(1, (now - phaseStart) / 500);
 
-              const spread = t * h * 0.35;   // keep horizontal reach
-              const drop = t * h * 0.10;     // 👈 small downward tilt
+              const spread = t * h * 0.25;   // keep horizontal reach
+              const drop = t * h * 0.20;     // 👈 small downward tilt
 
               // RIGHT ARM (straight line, slightly downward)
               ctx.beginPath();
