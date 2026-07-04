@@ -3329,19 +3329,19 @@
             if (char === 'cr7') {
               const t = Math.min(1, (now - phaseStart) / 500);
 
-              const armX = h * 0.34 * t;
-              const armY = -h * 0.38 - Math.sin(t * Math.PI) * h * 0.25;
+              const spread = t * h * 0.35;   // keep horizontal reach
+              const drop = t * h * 0.10;     // 👈 small downward tilt
 
-              // Right arm (SIUUU style)
+              // RIGHT ARM (straight line, slightly downward)
               ctx.beginPath();
               ctx.moveTo(h*0.16, -h*0.38);
-              ctx.lineTo(h*0.16 + armX, armY);
+              ctx.lineTo(h*0.16 + spread, -h*0.38 + drop);
               ctx.stroke();
 
-              // Left arm (mirrored same motion)
+              // LEFT ARM (mirror)
               ctx.beginPath();
               ctx.moveTo(-h*0.16, -h*0.38);
-              ctx.lineTo(-h*0.16 - armX, armY);
+              ctx.lineTo(-h*0.16 - spread, -h*0.38 + drop);
               ctx.stroke();
             } else {
               // Messi: both arms rise toward sky, one finger pointing up from each hand
