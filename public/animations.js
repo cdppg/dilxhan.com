@@ -3683,206 +3683,145 @@
   ANIMATIONS['fortune'] = {
     run({ done }) {
       if (document.getElementById('dilxhan-fort-overlay')) { done(); return; }
+    //  CSS
+    if (!document.getElementById('dilxhan-fort-style')) {
+      const s = document.createElement('style');
+      s.id = 'dilxhan-fort-style';
+      s.textContent = `
+        #dilxhan-fort-overlay {
+          position:fixed; inset:0; z-index:10001;
+          background:rgba(251, 249, 244, 0.9);
+          backdrop-filter:blur(8px);
+          display:flex; align-items:center; justify-content:center;
+          animation:fort-fi 350ms ease forwards;
+        }
+        @keyframes fort-fi{from{opacity:0}to{opacity:1}}
 
-      // ── CSS ──────────────────────────────────────────────────
-      if (!document.getElementById('dilxhan-fort-style')) {
-        const s = document.createElement('style');
-        s.id = 'dilxhan-fort-style';
-        s.textContent = `
-          #dilxhan-fort-overlay {
-            position:fixed; inset:0; z-index:10001;
-            background:rgba(6,3,1,0.93);
-            backdrop-filter:blur(14px);
-            display:flex; align-items:center; justify-content:center;
-            animation:fort-fi 350ms ease forwards;
-          }
-          @keyframes fort-fi{from{opacity:0}to{opacity:1}}
+        #dilxhan-fort-modal {
+          position:relative; z-index:1;
+          background:#FFFFFF;
+          border:1px solid rgba(200, 159, 112, 0.2);
+          border-radius:12px;
+          padding:32px 22px 22px;
+          width:min(400px,94vw);
+          max-height:92vh; overflow-y:auto;
+          box-shadow:0 10px 40px rgba(92, 82, 72, 0.15);
+          font-family:inherit; color:#5C5248;
+        }
+        #dilxhan-fort-modal::-webkit-scrollbar{width:3px}
+        #dilxhan-fort-modal::-webkit-scrollbar-thumb{background:rgba(200, 159, 112, 0.2);border-radius:2px}
 
-          #dilxhan-fort-modal {
-            position:relative; z-index:1;
-            background:#110C06;
-            border:1px solid rgba(180,130,40,0.32);
-            border-radius:6px;
-            padding:32px 22px 22px;
-            width:min(400px,94vw);
-            max-height:92vh; overflow-y:auto;
-            box-shadow:0 0 0 1px rgba(180,130,40,0.1),0 0 70px rgba(0,0,0,0.8),inset 0 0 100px rgba(160,90,10,0.04);
-            font-family:inherit; color:#F0DDB8;
-            background-image:
-              repeating-linear-gradient(90deg,rgba(180,130,40,0.025) 0,rgba(180,130,40,0.025) 1px,transparent 1px,transparent 40px),
-              repeating-linear-gradient(0deg,rgba(180,130,40,0.025) 0,rgba(180,130,40,0.025) 1px,transparent 1px,transparent 40px);
-          }
-          #dilxhan-fort-modal::-webkit-scrollbar{width:3px}
-          #dilxhan-fort-modal::-webkit-scrollbar-thumb{background:rgba(180,130,40,0.25);border-radius:2px}
+        #dilxhan-fort-close {
+          position:absolute; top:12px; right:14px; z-index:10;
+          width:28px; height:28px; border-radius:50%;
+          background:rgba(200, 159, 112, 0.08);
+          border:1px solid rgba(200, 159, 112, 0.2);
+          color:#B89C85; font-size:12px; cursor:pointer;
+          display:flex; align-items:center; justify-content:center;
+          transition:all 200ms;
+        }
+        #dilxhan-fort-close:hover{background:rgba(200, 159, 112, 0.16);color:#C89F70;}
 
-          #dilxhan-fort-close {
-            position:absolute; top:12px; right:14px; z-index:10;
-            width:28px; height:28px; border-radius:50%;
-            background:rgba(180,130,40,0.08);
-            border:1px solid rgba(180,130,40,0.22);
-            color:rgba(180,130,40,0.5); font-size:12px; cursor:pointer;
-            display:flex; align-items:center; justify-content:center;
-            transition:all 150ms;
-          }
-          #dilxhan-fort-close:hover{background:rgba(180,130,40,0.16);color:#C9A84C;border-color:rgba(180,130,40,0.5)}
+        .fc-divider {
+          height:1px; margin:6px 0;
+          background:linear-gradient(90deg,transparent,rgba(200, 159, 112, 0.3),transparent);
+        }
+        .fc-seal {
+          width:10px; height:10px; border-radius:50%;
+          background:#B86B6B; display:inline-block;
+          box-shadow:0 0 8px rgba(184, 107, 107, 0.3);
+        }
+        .fc-title-area {
+          text-align:center; margin-bottom:22px;
+          display:flex; flex-direction:column; align-items:center; gap:5px;
+        }
+        .fc-jp { font-size:10px; letter-spacing:.45em; color:#B89C85; }
+        .fc-main-title {
+          font-family:'Fraunces',Georgia,serif;
+          font-size:20px; font-weight:900; letter-spacing:.12em;
+          color:#C89F70;
+        }
+        .fc-seals { display:flex; gap:8px; align-items:center; }
 
-          .fc-divider {
-            height:1px; margin:6px 0;
-            background:linear-gradient(90deg,transparent,rgba(180,130,40,0.38),transparent);
-          }
-          .fc-seal {
-            width:10px; height:10px; border-radius:50%;
-            background:#8B1A1A; display:inline-block;
-            box-shadow:0 0 8px rgba(139,26,26,0.7);
-          }
-          .fc-title-area {
-            text-align:center; margin-bottom:22px;
-            display:flex; flex-direction:column; align-items:center; gap:5px;
-          }
-          .fc-jp { font-size:10px; letter-spacing:.45em; color:rgba(180,130,40,0.5); }
-          .fc-main-title {
-            font-family:'Fraunces',Georgia,serif;
-            font-size:20px; font-weight:900; letter-spacing:.12em;
-            color:#C9A84C; text-shadow:0 0 22px rgba(201,168,76,0.3);
-          }
-          .fc-seals { display:flex; gap:8px; align-items:center; }
+        #fc-prompt {
+          text-align:center; font-size:10px; letter-spacing:.18em;
+          color:#B89C85; margin-bottom:20px; text-transform:uppercase;
+        }
 
-          #fc-prompt {
-            text-align:center; font-size:10px; letter-spacing:.18em;
-            color:rgba(180,130,40,0.45); margin-bottom:20px; text-transform:uppercase;
-          }
+        #fc-cookies { display:flex; justify-content:center; gap:14px; margin-bottom:18px; }
+        .fc-cookie-btn {
+          background:none; border:none; cursor:pointer;
+          display:flex; flex-direction:column; align-items:center; gap:7px;
+          padding:0; transition:transform 220ms; position:relative;
+          width:100px;
+        }
+        .fc-cookie-btn:hover:not(.fc-used):not(.fc-selected) {
+          transform:translateY(-8px) scale(1.06);
+        }
+        .fc-cookie-btn.fc-used {
+          cursor:default; opacity:0.3; pointer-events:none;
+          transform:scale(0.92) !important;
+        }
+        .fc-cookie-btn.fc-selected { cursor:default; }
+        .fc-cookie-wrap { position:relative; width:100px; height:76px; }
+        .fc-svg { width:100px; height:76px; display:block; }
 
-          #fc-cookies {
-            display:flex; justify-content:center; gap:14px; margin-bottom:18px;
-          }
+        .fc-half { position:absolute; inset:0; pointer-events:none; }
+        .fc-half-t { clip-path:polygon(0 0,100% 0,100% 50%,0 50%); }
+        .fc-half-b { clip-path:polygon(0 50%,100% 50%,100% 100%,0 100%); }
+        .fc-cracking .fc-half-t { animation:fc-split-t 680ms cubic-bezier(.22,1,.36,1) forwards; }
+        .fc-cracking .fc-half-b { animation:fc-split-b 680ms cubic-bezier(.22,1,.36,1) forwards; }
+        @keyframes fc-split-t { 100%{transform:translate(-16px,-24px) rotate(-24deg);opacity:0} }
+        @keyframes fc-split-b { 100%{transform:translate(16px,20px) rotate(20deg);opacity:0} }
 
-          .fc-cookie-btn {
-            background:none; border:none; cursor:pointer;
-            display:flex; flex-direction:column; align-items:center; gap:7px;
-            padding:0; transition:transform 220ms; position:relative;
-            width:100px;
-          }
-          .fc-cookie-btn:hover:not(.fc-used):not(.fc-selected) {
-            transform:translateY(-8px) scale(1.06);
-          }
-          .fc-cookie-btn.fc-used {
-            cursor:default; opacity:0.22; pointer-events:none;
-            transform:scale(0.92) !important;
-            transition:all 400ms;
-          }
-          .fc-cookie-btn.fc-selected { cursor:default; }
+        .fc-cookie-num { font-size:11px; letter-spacing:.12em; color:#D6C4B0; }
 
-          .fc-cookie-wrap { position:relative; width:100px; height:76px; }
-          .fc-svg { width:100px; height:76px; display:block; }
+        #fc-scroll {
+          background:#FDFBF7;
+          border:1px solid #E6DED0;
+          border-radius:3px; padding:20px 18px 16px;
+          box-shadow:0 4px 15px rgba(92, 82, 72, 0.1);
+          margin-bottom:14px; position:relative;
+          transform-origin:top center;
+          animation:fc-unfurl 700ms cubic-bezier(.22,1,.36,1) forwards;
+        }
+        @keyframes fc-unfurl { 0% {transform:scaleY(0);opacity:0} 100%{transform:scaleY(1);opacity:1} }
+        .fc-scroll-curl {
+          display:block; height:5px; margin:0 -18px;
+          background:linear-gradient(180deg,rgba(200,159,112,0.15),transparent);
+        }
+        .fc-scroll-curl.bot { margin-top:14px; margin-bottom:-16px; transform:rotate(180deg); }
 
-          /* Cookie halves — for crack animation */
-          .fc-half {
-            position:absolute; inset:0; pointer-events:none;
-          }
-          .fc-half-t { clip-path:polygon(0 0,100% 0,100% 50%,0 50%); }
-          .fc-half-b { clip-path:polygon(0 50%,100% 50%,100% 100%,0 100%); }
-
-          .fc-cracking .fc-half-t {
-            animation:fc-split-t 680ms cubic-bezier(.4,0,.2,1) forwards;
-          }
-          .fc-cracking .fc-half-b {
-            animation:fc-split-b 680ms cubic-bezier(.4,0,.2,1) forwards;
-          }
-          @keyframes fc-split-t {
-            0%  {transform:none;opacity:1}
-            100%{transform:translate(-16px,-24px) rotate(-24deg);opacity:0.15}
-          }
-          @keyframes fc-split-b {
-            0%  {transform:none;opacity:1}
-            100%{transform:translate(16px,20px) rotate(20deg);opacity:0.15}
-          }
-
-          .fc-cookie-num {
-            font-size:11px; letter-spacing:.12em;
-            color:rgba(180,130,40,0.35);
-          }
-
-          /* Fortune scroll */
-          #fc-scroll {
-            background:linear-gradient(180deg,#F9EDD2,#F3E4B6,#F9EDD2);
-            border:1px solid rgba(150,105,35,0.4);
-            border-radius:3px; padding:20px 18px 16px;
-            box-shadow:0 6px 40px rgba(0,0,0,0.45),inset 0 0 30px rgba(150,105,35,0.06);
-            margin-bottom:14px; position:relative;
-            transform-origin:top center;
-            animation:fc-unfurl 700ms cubic-bezier(.4,0,.2,1) forwards;
-          }
-          @keyframes fc-unfurl {
-            0% {transform:scaleY(0);opacity:0}
-            65%{transform:scaleY(1);opacity:1}
-            100%{transform:scaleY(1);opacity:1}
-          }
-          /* Scroll edge curl effect */
-          .fc-scroll-curl {
-            display:block; height:5px; margin:0 -18px;
-            background:linear-gradient(180deg,rgba(110,75,15,0.2),transparent);
-            border-radius:3px 3px 0 0;
-          }
-          .fc-scroll-curl.bot {
-            margin-top:14px; margin-bottom:-16px;
-            transform:rotate(180deg); border-radius:3px 3px 0 0;
-          }
-
-          .fc-category-badge {
-            display:flex; align-items:center; justify-content:center; gap:5px;
-            font-size:10px; letter-spacing:.13em; text-transform:uppercase;
-            color:rgba(90,55,10,0.6); margin:10px auto 14px;
-            border:1px solid rgba(150,105,35,0.28);
-            border-radius:20px; padding:3px 10px;
-            width:fit-content;
-          }
-
-          .fc-fortune-text {
-            font-family:Georgia,'Times New Roman',serif;
-            font-size:clamp(13px,3.6vw,16px); line-height:1.78;
-            color:#261605; text-align:center; font-style:italic;
-          }
-
-          .fc-rarity-badge {
-            text-align:center; font-size:9px; letter-spacing:.2em;
-            color:rgba(90,55,10,0.38); margin-top:12px; text-transform:uppercase;
-          }
-          .fc-rarity-badge.rare { color:#8B1A1A; font-weight:600; }
-          .fc-rarity-badge.ultra {
-            color:#B8860B; font-weight:700; font-size:10px;
-            animation:fc-shimmer 1.8s ease-in-out infinite;
-          }
-          @keyframes fc-shimmer {
-            0%,100%{text-shadow:0 0 6px rgba(201,168,76,0.5)}
-            50%    {text-shadow:0 0 18px rgba(201,168,76,1),0 0 36px rgba(201,168,76,0.4)}
-          }
-
-          /* Ultra-rare sparkles */
-          .fc-sparkle {
-            position:absolute; pointer-events:none; font-size:11px; color:#C9A84C;
-            animation:fc-sp 1.4s ease-in-out infinite;
-          }
-          @keyframes fc-sp {
-            0%,100%{opacity:0;transform:scale(0.4)}
-            50%    {opacity:1;transform:scale(1.3)}
-          }
-
-          #fc-actions { display:flex; justify-content:center; margin-top:2px; }
-          .fc-action-btn {
-            background:rgba(180,130,40,0.08);
-            border:1px solid rgba(180,130,40,0.3);
-            border-radius:4px; padding:10px 22px;
-            color:rgba(200,160,60,0.75); font-size:11px;
-            letter-spacing:.14em; cursor:pointer; transition:all 160ms;
-            font-family:inherit;
-          }
-          .fc-action-btn:hover {
-            background:rgba(180,130,40,0.16); color:#C9A84C;
-            border-color:rgba(180,130,40,0.55);
-          }
-        `;
-        document.head.appendChild(s);
-      }
+        .fc-category-badge {
+          display:flex; align-items:center; justify-content:center; gap:5px;
+          font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+          color:#B89C85; margin:10px auto 14px;
+          border:1px solid #E6DED0;
+          border-radius:20px; padding:3px 10px; width:fit-content;
+        }
+        .fc-fortune-text {
+          font-family:Georgia,serif;
+          font-size:16px; line-height:1.8;
+          color:#4A443D; text-align:center;
+        }
+        .fc-rarity-badge {
+          text-align:center; font-size:9px; letter-spacing:.2em;
+          color:#C89F70; margin-top:12px; text-transform:uppercase;
+        }
+        .fc-rarity-badge.rare { color:#B86B6B; }
+        .fc-rarity-badge.ultra { color:#C89F70; font-weight:700; }
+        
+        #fc-actions { display:flex; justify-content:center; margin-top:10px; }
+        .fc-action-btn {
+          background:#F5F2EE; border:1px solid #E6DED0;
+          border-radius:20px; padding:8px 18px;
+          color:#B89C85; font-size:11px;
+          letter-spacing:.1em; cursor:pointer; transition:all 200ms;
+        }
+        .fc-action-btn:hover { background:#E6DED0; color:#4A443D; }
+      `;
+      document.head.appendChild(s);
+    }
 
       // ── Fortune data ──────────────────────────────────────────
       // [icon, categoryName, text, rarity]  rarity: 0=common 1=rare 2=ultra
