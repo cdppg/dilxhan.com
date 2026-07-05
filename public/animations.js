@@ -3667,166 +3667,226 @@
 
   // ════════════════════════════════════════════════════════════
   //  FORTUNE  — Japanese-themed fortune cookie reveal
-  //
-  //  Three cookies shown. User picks one. It cracks open and
-  //  a paper scroll unfurls with a fortune.
-  //
-  //  114 fortunes across 12 categories with rarity weighting:
-  //    Common (96%): 🍀 💪 ❤️ 🌞 💰 🌍 ✨ 😄 🎮 🎲
-  //    Rare   (3.3%): 🌈
-  //    Ultra  (0.6%): 👑
-  //
-  //  localStorage tracks seen fortunes so repeats are rare.
-  //  After 70% of fortunes seen the tracker resets.
+  //  Warm inviting palette · two-wing cookie shape ·
+  //  left/right crack · shuffle animation on new cookies
   // ════════════════════════════════════════════════════════════
 
   ANIMATIONS['fortune'] = {
     run({ done }) {
       if (document.getElementById('dilxhan-fort-overlay')) { done(); return; }
-    //  CSS
-    if (!document.getElementById('dilxhan-fort-style')) {
-      const s = document.createElement('style');
-      s.id = 'dilxhan-fort-style';
-      s.textContent = `
-        #dilxhan-fort-overlay {
-          position:fixed; inset:0; z-index:10001;
-          background:rgba(251, 249, 244, 0.9);
-          backdrop-filter:blur(8px);
-          display:flex; align-items:center; justify-content:center;
-          animation:fort-fi 350ms ease forwards;
-        }
-        @keyframes fort-fi{from{opacity:0}to{opacity:1}}
 
-        #dilxhan-fort-modal {
-          position:relative; z-index:1;
-          background:#FFFFFF;
-          border:1px solid rgba(200, 159, 112, 0.2);
-          border-radius:12px;
-          padding:32px 22px 22px;
-          width:min(400px,94vw);
-          max-height:92vh; overflow-y:auto;
-          box-shadow:0 10px 40px rgba(92, 82, 72, 0.15);
-          font-family:inherit; color:#5C5248;
-        }
-        #dilxhan-fort-modal::-webkit-scrollbar{width:3px}
-        #dilxhan-fort-modal::-webkit-scrollbar-thumb{background:rgba(200, 159, 112, 0.2);border-radius:2px}
+      // ── CSS ──────────────────────────────────────────────────
+      if (!document.getElementById('dilxhan-fort-style')) {
+        const s = document.createElement('style');
+        s.id = 'dilxhan-fort-style';
+        s.textContent = `
+          #dilxhan-fort-overlay {
+            position:fixed; inset:0; z-index:10001;
+            background:rgba(110,65,15,0.32);
+            backdrop-filter:blur(10px);
+            display:flex; align-items:center; justify-content:center;
+            animation:fort-fi 320ms ease forwards;
+          }
+          @keyframes fort-fi{from{opacity:0}to{opacity:1}}
 
-        #dilxhan-fort-close {
-          position:absolute; top:12px; right:14px; z-index:10;
-          width:28px; height:28px; border-radius:50%;
-          background:rgba(200, 159, 112, 0.08);
-          border:1px solid rgba(200, 159, 112, 0.2);
-          color:#B89C85; font-size:12px; cursor:pointer;
-          display:flex; align-items:center; justify-content:center;
-          transition:all 200ms;
-        }
-        #dilxhan-fort-close:hover{background:rgba(200, 159, 112, 0.16);color:#C89F70;}
+          #dilxhan-fort-modal {
+            position:relative; z-index:1;
+            background:#FFFAF2;
+            border:1px solid rgba(180,120,40,0.28);
+            border-radius:8px;
+            padding:30px 22px 22px;
+            width:min(400px,94vw);
+            max-height:92vh; overflow-y:auto;
+            box-shadow:
+              0 0 0 1px rgba(180,120,40,0.1),
+              0 14px 60px rgba(100,55,10,0.2),
+              0 2px 8px rgba(100,50,10,0.1);
+            font-family:inherit; color:#3A1F08;
+            background-image:
+              radial-gradient(ellipse at 15% 85%,rgba(220,160,55,0.07) 0%,transparent 55%),
+              radial-gradient(ellipse at 85% 12%,rgba(200,120,35,0.05) 0%,transparent 55%);
+          }
+          #dilxhan-fort-modal::-webkit-scrollbar{width:3px}
+          #dilxhan-fort-modal::-webkit-scrollbar-thumb{background:rgba(160,100,30,0.2);border-radius:2px}
 
-        .fc-divider {
-          height:1px; margin:6px 0;
-          background:linear-gradient(90deg,transparent,rgba(200, 159, 112, 0.3),transparent);
-        }
-        .fc-seal {
-          width:10px; height:10px; border-radius:50%;
-          background:#B86B6B; display:inline-block;
-          box-shadow:0 0 8px rgba(184, 107, 107, 0.3);
-        }
-        .fc-title-area {
-          text-align:center; margin-bottom:22px;
-          display:flex; flex-direction:column; align-items:center; gap:5px;
-        }
-        .fc-jp { font-size:10px; letter-spacing:.45em; color:#B89C85; }
-        .fc-main-title {
-          font-family:'Fraunces',Georgia,serif;
-          font-size:20px; font-weight:900; letter-spacing:.12em;
-          color:#C89F70;
-        }
-        .fc-seals { display:flex; gap:8px; align-items:center; }
+          #dilxhan-fort-close {
+            position:absolute; top:12px; right:14px; z-index:10;
+            width:28px; height:28px; border-radius:50%;
+            background:rgba(180,100,30,0.07);
+            border:1px solid rgba(180,100,30,0.2);
+            color:rgba(160,90,20,0.5); font-size:12px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 150ms;
+          }
+          #dilxhan-fort-close:hover{background:rgba(180,100,30,0.14);color:#8B4513;border-color:rgba(180,100,30,0.4)}
 
-        #fc-prompt {
-          text-align:center; font-size:10px; letter-spacing:.18em;
-          color:#B89C85; margin-bottom:20px; text-transform:uppercase;
-        }
+          .fc-divider{
+            height:1px; margin:5px 0;
+            background:linear-gradient(90deg,transparent,rgba(160,100,30,0.3),transparent);
+          }
+          .fc-seal{
+            width:10px; height:10px; border-radius:50%;
+            background:#9B2020; display:inline-block;
+            box-shadow:0 0 8px rgba(155,32,32,0.5);
+          }
+          .fc-title-area{
+            text-align:center; margin-bottom:20px;
+            display:flex; flex-direction:column; align-items:center; gap:5px;
+          }
+          .fc-seals{display:flex; gap:8px; align-items:center;}
+          .fc-jp{font-size:10px; letter-spacing:.45em; color:rgba(140,80,20,0.42);}
+          .fc-main-title{
+            font-family:'Fraunces',Georgia,serif;
+            font-size:20px; font-weight:900; letter-spacing:.1em; color:#7A3B10;
+          }
 
-        #fc-cookies { display:flex; justify-content:center; gap:14px; margin-bottom:18px; }
-        .fc-cookie-btn {
-          background:none; border:none; cursor:pointer;
-          display:flex; flex-direction:column; align-items:center; gap:7px;
-          padding:0; transition:transform 220ms; position:relative;
-          width:100px;
-        }
-        .fc-cookie-btn:hover:not(.fc-used):not(.fc-selected) {
-          transform:translateY(-8px) scale(1.06);
-        }
-        .fc-cookie-btn.fc-used {
-          cursor:default; opacity:0.3; pointer-events:none;
-          transform:scale(0.92) !important;
-        }
-        .fc-cookie-btn.fc-selected { cursor:default; }
-        .fc-cookie-wrap { position:relative; width:100px; height:76px; }
-        .fc-svg { width:100px; height:76px; display:block; }
+          #fc-prompt{
+            text-align:center; font-size:10px; letter-spacing:.18em;
+            color:rgba(140,80,20,0.42); margin-bottom:18px; text-transform:uppercase;
+          }
 
-        .fc-half { position:absolute; inset:0; pointer-events:none; }
-        .fc-half-t { clip-path:polygon(0 0,100% 0,100% 50%,0 50%); }
-        .fc-half-b { clip-path:polygon(0 50%,100% 50%,100% 100%,0 100%); }
-        .fc-cracking .fc-half-t { animation:fc-split-t 680ms cubic-bezier(.22,1,.36,1) forwards; }
-        .fc-cracking .fc-half-b { animation:fc-split-b 680ms cubic-bezier(.22,1,.36,1) forwards; }
-        @keyframes fc-split-t { 100%{transform:translate(-16px,-24px) rotate(-24deg);opacity:0} }
-        @keyframes fc-split-b { 100%{transform:translate(16px,20px) rotate(20deg);opacity:0} }
+          #fc-cookies{
+            display:flex; justify-content:center; gap:14px; margin-bottom:16px;
+          }
 
-        .fc-cookie-num { font-size:11px; letter-spacing:.12em; color:#D6C4B0; }
+          .fc-cookie-btn{
+            background:none; border:none; cursor:pointer;
+            display:flex; flex-direction:column; align-items:center; gap:8px;
+            padding:0; position:relative; flex:1; max-width:110px;
+          }
+          .fc-cookie-btn:hover:not(.fc-used):not(.fc-selected) {
+            transform:translateY(-9px) scale(1.06);
+            transition:transform 220ms cubic-bezier(.34,1.56,.64,1);
+          }
+          .fc-cookie-btn.fc-used{
+            cursor:default; opacity:0.18; pointer-events:none;
+            transition:opacity 350ms ease, transform 350ms ease;
+            transform:scale(0.9);
+          }
+          .fc-cookie-wrap{
+            position:relative; width:100%;
+            aspect-ratio:110/88;
+          }
+          .fc-svg{width:100%; height:100%; display:block;}
 
-        #fc-scroll {
-          background:#FDFBF7;
-          border:1px solid #E6DED0;
-          border-radius:3px; padding:20px 18px 16px;
-          box-shadow:0 4px 15px rgba(92, 82, 72, 0.1);
-          margin-bottom:14px; position:relative;
-          transform-origin:top center;
-          animation:fc-unfurl 700ms cubic-bezier(.22,1,.36,1) forwards;
-        }
-        @keyframes fc-unfurl { 0% {transform:scaleY(0);opacity:0} 100%{transform:scaleY(1);opacity:1} }
-        .fc-scroll-curl {
-          display:block; height:5px; margin:0 -18px;
-          background:linear-gradient(180deg,rgba(200,159,112,0.15),transparent);
-        }
-        .fc-scroll-curl.bot { margin-top:14px; margin-bottom:-16px; transform:rotate(180deg); }
+          /* Halves for vertical left/right crack */
+          .fc-half{position:absolute; inset:0; pointer-events:none;}
+          .fc-half-l{clip-path:polygon(0 0,50% 0,50% 100%,0 100%);}
+          .fc-half-r{clip-path:polygon(50% 0,100% 0,100% 100%,50% 100%);}
 
-        .fc-category-badge {
-          display:flex; align-items:center; justify-content:center; gap:5px;
-          font-size:10px; letter-spacing:.13em; text-transform:uppercase;
-          color:#B89C85; margin:10px auto 14px;
-          border:1px solid #E6DED0;
-          border-radius:20px; padding:3px 10px; width:fit-content;
-        }
-        .fc-fortune-text {
-          font-family:Georgia,serif;
-          font-size:16px; line-height:1.8;
-          color:#4A443D; text-align:center;
-        }
-        .fc-rarity-badge {
-          text-align:center; font-size:9px; letter-spacing:.2em;
-          color:#C89F70; margin-top:12px; text-transform:uppercase;
-        }
-        .fc-rarity-badge.rare { color:#B86B6B; }
-        .fc-rarity-badge.ultra { color:#C89F70; font-weight:700; }
-        
-        #fc-actions { display:flex; justify-content:center; margin-top:10px; }
-        .fc-action-btn {
-          background:#F5F2EE; border:1px solid #E6DED0;
-          border-radius:20px; padding:8px 18px;
-          color:#B89C85; font-size:11px;
-          letter-spacing:.1em; cursor:pointer; transition:all 200ms;
-        }
-        .fc-action-btn:hover { background:#E6DED0; color:#4A443D; }
-      `;
-      document.head.appendChild(s);
-    }
+          .fc-cracking .fc-half-l{
+            animation:fc-split-l 700ms cubic-bezier(.4,0,.2,1) forwards;
+          }
+          .fc-cracking .fc-half-r{
+            animation:fc-split-r 700ms cubic-bezier(.4,0,.2,1) forwards;
+          }
+          @keyframes fc-split-l{
+            0%  {transform:none;opacity:1}
+            100%{transform:translate(-34px,14px) rotate(-30deg);opacity:0.16}
+          }
+          @keyframes fc-split-r{
+            0%  {transform:none;opacity:1}
+            100%{transform:translate(34px,14px) rotate(30deg);opacity:0.16}
+          }
+
+          /* Pre-crack shake */
+          @keyframes fc-pre-crack{
+            0%,100%{transform:none}
+            25%    {transform:rotate(-5deg) scale(0.96)}
+            75%    {transform:rotate(5deg) scale(0.96)}
+          }
+
+          /* Shuffle animations */
+          @keyframes fc-shuffle-in{
+            0%  {transform:scale(0.3) translateY(32px) rotate(-18deg);opacity:0}
+            55% {transform:scale(1.08) translateY(-6px) rotate(3deg);opacity:1}
+            78% {transform:scale(0.97) translateY(2px) rotate(-1deg);opacity:1}
+            100%{transform:scale(1) translateY(0) rotate(0);opacity:1}
+          }
+
+          .fc-cookie-num{
+            font-size:11px; letter-spacing:.1em; color:rgba(140,80,20,0.32);
+          }
+
+          /* Fortune scroll */
+          #fc-scroll{
+            background:linear-gradient(180deg,#FAF0D2,#F2E0A0,#FAF0D2);
+            border:1px solid rgba(155,105,28,0.32);
+            border-radius:3px; padding:18px 18px 14px;
+            box-shadow:0 6px 32px rgba(100,60,10,0.14),inset 0 0 30px rgba(150,100,25,0.05);
+            margin-bottom:14px; position:relative;
+            transform-origin:top center;
+            animation:fc-unfurl 700ms cubic-bezier(.4,0,.2,1) forwards;
+          }
+          @keyframes fc-unfurl{
+            0% {transform:scaleY(0);opacity:0}
+            65%{transform:scaleY(1);opacity:1}
+            100%{transform:scaleY(1);opacity:1}
+          }
+          .fc-scroll-curl{
+            display:block; height:5px; margin:0 -18px;
+            background:linear-gradient(180deg,rgba(120,80,12,0.17),transparent);
+            border-radius:3px 3px 0 0;
+          }
+          .fc-scroll-curl.bot{
+            margin-top:12px; margin-bottom:-14px;
+            transform:rotate(180deg);
+          }
+          .fc-category-badge{
+            display:flex; align-items:center; justify-content:center; gap:5px;
+            font-size:10px; letter-spacing:.12em; text-transform:uppercase;
+            color:rgba(90,50,8,0.58); margin:10px auto 13px;
+            border:1px solid rgba(140,95,22,0.24);
+            border-radius:20px; padding:3px 10px; width:fit-content;
+          }
+          .fc-fortune-text{
+            font-family:Georgia,'Times New Roman',serif;
+            font-size:clamp(13px,3.6vw,15px); line-height:1.8;
+            color:#261505; text-align:center; font-style:italic;
+          }
+          .fc-rarity-badge{
+            text-align:center; font-size:9px; letter-spacing:.2em;
+            color:rgba(90,50,8,0.35); margin-top:11px; text-transform:uppercase;
+          }
+          .fc-rarity-badge.rare{color:#8B1A1A; font-weight:600;}
+          .fc-rarity-badge.ultra{
+            color:#A07010; font-weight:700; font-size:10px;
+            animation:fc-shimmer 1.8s ease-in-out infinite;
+          }
+          @keyframes fc-shimmer{
+            0%,100%{text-shadow:0 0 6px rgba(180,140,20,0.4)}
+            50%    {text-shadow:0 0 16px rgba(180,140,20,0.9),0 0 32px rgba(180,140,20,0.3)}
+          }
+          .fc-sparkle{
+            position:absolute; pointer-events:none; font-size:11px; color:#B89A20;
+            animation:fc-sp 1.4s ease-in-out infinite;
+          }
+          @keyframes fc-sp{
+            0%,100%{opacity:0;transform:scale(0.4)}
+            50%    {opacity:1;transform:scale(1.3)}
+          }
+
+          #fc-actions{display:flex; justify-content:center; margin-top:2px;}
+          .fc-action-btn{
+            background:rgba(160,100,28,0.08);
+            border:1px solid rgba(160,100,28,0.24);
+            border-radius:5px; padding:10px 22px;
+            color:rgba(130,75,14,0.72); font-size:11px;
+            letter-spacing:.13em; cursor:pointer; transition:all 160ms;
+            font-family:inherit;
+          }
+          .fc-action-btn:hover{
+            background:rgba(160,100,28,0.15); color:#8B4513;
+            border-color:rgba(160,100,28,0.44);
+            box-shadow:0 2px 12px rgba(160,100,28,0.12);
+          }
+        `;
+        document.head.appendChild(s);
+      }
 
       // ── Fortune data ──────────────────────────────────────────
-      // [icon, categoryName, text, rarity]  rarity: 0=common 1=rare 2=ultra
+      // [icon, categoryName, text, rarity]  0=common 1=rare 2=ultra
       const F = [
-        // 🍀 Lucky
         ['🍀','Lucky','Fortune favors those who make their own luck.',0],
         ['🍀','Lucky','The stars have aligned in your favor — step boldly.',0],
         ['🍀','Lucky','An unexpected gift is making its way to you.',0],
@@ -3837,7 +3897,6 @@
         ['🍀','Lucky','The universe is conspiring in your favor. Let it.',0],
         ['🍀','Lucky','Tomorrow\'s luck begins with today\'s courage.',0],
         ['🍀','Lucky','Something long overdue is finally on its way to you.',0],
-        // 💪 Motivational
         ['💪','Motivational','The mountain you fear to climb has the best view.',0],
         ['💪','Motivational','Every expert was once a beginner who refused to quit.',0],
         ['💪','Motivational','You have survived every difficult day so far. Today is no different.',0],
@@ -3848,7 +3907,6 @@
         ['💪','Motivational','Small progress is still progress. Keep moving.',0],
         ['💪','Motivational','You are closer to your goal than you were yesterday.',0],
         ['💪','Motivational','Believe in yourself as fiercely as you believe in others.',0],
-        // ❤️ Kindness & Relationships
         ['❤️','Kindness','The one who makes you laugh is worth more than gold.',0],
         ['❤️','Kindness','A kind word costs nothing but means everything.',0],
         ['❤️','Kindness','Tell someone you love them today. Tomorrow is never guaranteed.',0],
@@ -3859,7 +3917,6 @@
         ['❤️','Kindness','The kindness you show strangers echoes through eternity.',0],
         ['❤️','Kindness','Forgiveness is a gift you give yourself.',0],
         ['❤️','Kindness','A relationship that makes you better is worth fighting for.',0],
-        // 🌞 Daily Positivity
         ['🌞','Positivity','Today is a blank page. Write something beautiful.',0],
         ['🌞','Positivity','The sun rose again today. So did you. That is enough.',0],
         ['🌞','Positivity','Even slow days move you forward.',0],
@@ -3870,7 +3927,6 @@
         ['🌞','Positivity','Today\'s simple moments are tomorrow\'s cherished memories.',0],
         ['🌞','Positivity','Everything you need is already within your reach.',0],
         ['🌞','Positivity','The best part of today has not happened yet.',0],
-        // 💰 Success & Growth
         ['💰','Success','The seed of your greatest success is planted in today\'s effort.',0],
         ['💰','Success','Wealth is not only money — it is time, health, and peace.',0],
         ['💰','Success','A great idea will not wait — write it down now.',0],
@@ -3881,7 +3937,6 @@
         ['💰','Success','One good habit repeated is worth a thousand ideas abandoned.',0],
         ['💰','Success','You are building something that will matter. Keep going.',0],
         ['💰','Success','The goal is not to be rich. The goal is to be free.',0],
-        // 🌍 Adventure
         ['🌍','Adventure','Say yes to the thing you have been putting off for months.',0],
         ['🌍','Adventure','The road not taken is still there, patiently waiting.',0],
         ['🌍','Adventure','Adventure is not found on a map. It is found in an open mind.',0],
@@ -3892,7 +3947,6 @@
         ['🌍','Adventure','The journey changes you before the destination even arrives.',0],
         ['🌍','Adventure','Try the thing on the menu you cannot pronounce. It will be perfect.',0],
         ['🌍','Adventure','A new city, a new dish, a new conversation — all are waiting.',0],
-        // ✨ Mysterious
         ['✨','Mysterious','The answer you seek is hiding in plain sight.',0],
         ['✨','Mysterious','Not all who wander are lost — some have found something better.',0],
         ['✨','Mysterious','The version of you from five years ago would be amazed right now.',0],
@@ -3903,18 +3957,16 @@
         ['✨','Mysterious','You are exactly where you need to be, even if you can\'t see why.',0],
         ['✨','Mysterious','The universe is 13.8 billion years old. Today was made for you.',0],
         ['✨','Mysterious','You have met this person before. You do not remember where.',0],
-        // 😄 Funny
         ['😄','Funny','Delete your browser history. Just in case.',0],
         ['😄','Funny','Your future self is judging your choices. Still rooting for you though.',0],
         ['😄','Funny','Technically, everything you have ever eaten is a risk you survived.',0],
-        ['😄','Funny','Someone will ask if you\'re okay today. You will say \'fine.\'',0],
+        ['😄','Funny','Someone will ask if you\'re okay today. You will say fine.',0],
         ['😄','Funny','The snack you\'re thinking about — eat it. Life is short.',0],
         ['😄','Funny','You are one nap away from being a completely different person.',0],
         ['😄','Funny','A spreadsheet won\'t solve your problems but it will make you feel better.',0],
         ['😄','Funny','Your plants are judging you, but they still love you.',0],
         ['😄','Funny','Your Wi-Fi speed is inversely proportional to meeting urgency.',0],
         ['😄','Funny','Somewhere, someone is using Comic Sans unironically. Send help.',0],
-        // 🎮 Gamer
         ['🎮','Gamer','It\'s dangerous to go alone. Take this fortune.',0],
         ['🎮','Gamer','You have been playing on hard mode your whole life. You didn\'t notice.',0],
         ['🎮','Gamer','The tutorial was lying. Real life has no instructions.',0],
@@ -3925,7 +3977,6 @@
         ['🎮','Gamer','Press F to pay respects — or just send the message you\'ve been drafting.',0],
         ['🎮','Gamer','New quest available: Be kind to someone today.',0],
         ['🎮','Gamer','Your inventory is full. Time to drop some old baggage.',0],
-        // 🎲 Whimsical
         ['🎲','Whimsical','A duck somewhere has already thought of this exact same thing.',0],
         ['🎲','Whimsical','The last crumble in the cookie jar is always the sweetest.',0],
         ['🎲','Whimsical','You have been mispronouncing something forever. It doesn\'t matter.',0],
@@ -3936,7 +3987,6 @@
         ['🎲','Whimsical','A snail is completing its journey right now, unbothered.',0],
         ['🎲','Whimsical','Your future self will find this moment hilarious.',0],
         ['🎲','Whimsical','An unexpected umbrella will appear exactly when you need it.',0],
-        // 🌈 Rare
         ['🌈','Rare Fortune','You carry the memories of someone who loved you before you were born.',1],
         ['🌈','Rare Fortune','This fortune was written for this exact moment in your life.',1],
         ['🌈','Rare Fortune','You will create something that outlasts you. You have already begun.',1],
@@ -3945,7 +3995,6 @@
         ['🌈','Rare Fortune','You have changed someone\'s life without knowing it. They remember you.',1],
         ['🌈','Rare Fortune','The world is slightly better because you are in it today.',1],
         ['🌈','Rare Fortune','Fewer than 1 in 20 receive this fortune. May it serve you well.',1],
-        // 👑 Ultra-Rare
         ['👑','Ultra Rare','🌟 You found the hidden fortune. Legend says whoever reads this will have an extraordinary day. Today is that day. Go.',2],
         ['👑','Ultra Rare','👑 Fortune #001 — kept hidden for years, found only by those who look. You looked. The universe noticed.',2],
         ['👑','Ultra Rare','✨ The cookie did not choose you by accident. This fortune has been waiting specifically for you.',2],
@@ -3960,7 +4009,6 @@
       overlay.innerHTML = `
         <div id="dilxhan-fort-modal">
           <button id="dilxhan-fort-close">✕</button>
-
           <div class="fc-title-area">
             <div class="fc-divider"></div>
             <div class="fc-seals">
@@ -3973,7 +4021,6 @@
             </div>
             <div class="fc-divider"></div>
           </div>
-
           <p id="fc-prompt">Choose your fortune</p>
           <div id="fc-cookies"></div>
           <div id="fc-scroll" hidden></div>
@@ -3991,11 +4038,9 @@
         try { return new Set(JSON.parse(localStorage.getItem('dilxhan-fort-seen') || '[]')); }
         catch(e) { return new Set(); }
       }
-
       function markFortuneSeen(idx) {
         const seen = getSeenFortunes();
         seen.add(idx);
-        // Reset oldest half once 70% of fortunes are seen
         if (seen.size > Math.floor(F.length * 0.7)) {
           const arr = [...seen];
           arr.slice(0, Math.floor(arr.length / 2)).forEach(i => seen.delete(i));
@@ -4005,15 +4050,9 @@
       }
 
       function pickFortunes(count) {
-        const seen = getSeenFortunes();
-        const weights = F.map((f, i) => {
-          if (seen.has(i)) return 0;
-          return f[3] === 2 ? 1 : f[3] === 1 ? 4 : 10;
-        });
-
-        const chosen = [];
-        const used   = new Set();
-
+        const seen    = getSeenFortunes();
+        const weights = F.map((f, i) => seen.has(i) ? 0 : f[3] === 2 ? 1 : f[3] === 1 ? 4 : 10);
+        const chosen  = [], used = new Set();
         for (let pick = 0; pick < count; pick++) {
           const total = weights.reduce((a, b) => a + b, 0);
           if (total === 0) break;
@@ -4021,144 +4060,177 @@
           for (let i = 0; i < F.length; i++) {
             if (used.has(i)) continue;
             r -= weights[i];
-            if (r <= 0) {
-              chosen.push(i);
-              used.add(i);
-              weights[i] = 0;
-              break;
-            }
+            if (r <= 0) { chosen.push(i); used.add(i); weights[i] = 0; break; }
           }
         }
-        // Pad with any unseen fortune if not enough
+        // Fallback: pad with any unseen fortune
         while (chosen.length < count) {
-          const fallback = F.findIndex((_, i) => !chosen.includes(i));
-          if (fallback === -1) break;
-          chosen.push(fallback);
+          const fb = F.findIndex((_, i) => !chosen.includes(i));
+          if (fb === -1) break;
+          chosen.push(fb);
         }
         return chosen;
       }
 
-      // ── Cookie SVG ────────────────────────────────────────────
+      // ── Cookie SVG — two-wing fortune cookie shape ─────────────
+      // The fold point sits at x=55 (horizontal center of viewBox 110).
+      // The left wing occupies x<55, right wing x>55 — so the 50% vertical
+      // clip-path crack perfectly separates the two wings.
       function cookieSVG(id) {
-        return `<svg class="fc-svg" viewBox="0 0 100 76" xmlns="http://www.w3.org/2000/svg">
+        return `<svg class="fc-svg" viewBox="0 0 110 88" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <radialGradient id="fcg${id}" cx="38%" cy="30%">
-              <stop offset="0%" stop-color="#F6C86A"/>
-              <stop offset="55%" stop-color="#D4912A"/>
-              <stop offset="100%" stop-color="#9A6010"/>
+            <radialGradient id="fcgl${id}" cx="34%" cy="28%">
+              <stop offset="0%" stop-color="#F8D070"/>
+              <stop offset="52%" stop-color="#D49228"/>
+              <stop offset="100%" stop-color="#9A5E10"/>
             </radialGradient>
-            <filter id="fcs${id}" x="-15%" y="-15%" width="130%" height="130%">
-              <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.35"/>
+            <radialGradient id="fcgr${id}" cx="66%" cy="28%">
+              <stop offset="0%" stop-color="#F6C865"/>
+              <stop offset="52%" stop-color="#CC8820"/>
+              <stop offset="100%" stop-color="#8E5510"/>
+            </radialGradient>
+            <filter id="fcsh${id}" x="-22%" y="-22%" width="144%" height="144%">
+              <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="rgba(80,38,0,0.28)"/>
             </filter>
           </defs>
-          <path d="M50,6 Q78,6 90,32 Q82,38 65,38 L35,38 Q18,38 10,32 Q22,6 50,6 Z"
-                fill="url(#fcg${id})" filter="url(#fcs${id})"/>
-          <path d="M10,32 Q18,38 35,38 L65,38 Q82,38 90,32 Q88,60 65,68 Q50,72 35,68 Q12,60 10,32 Z"
-                fill="url(#fcg${id})" opacity="0.88" filter="url(#fcs${id})"/>
-          <ellipse cx="50" cy="38" rx="38" ry="4" fill="rgba(55,28,0,0.42)"/>
-          <ellipse cx="44" cy="20" rx="22" ry="9" fill="rgba(255,255,255,0.2)"
-                  transform="rotate(-8 44 20)"/>
+          <!-- Left wing: curves from fold (55,63) up-left to apex ~(17,45) then tip (26,7) -->
+          <path d="M55,63 C55,63 32,61 17,45 C5,30 10,10 26,7 C42,4 55,34 55,63 Z"
+                fill="url(#fcgl${id})" filter="url(#fcsh${id})"/>
+          <!-- Right wing: mirror of left around x=55 -->
+          <path d="M55,63 C55,63 78,61 93,45 C105,30 100,10 84,7 C68,4 55,34 55,63 Z"
+                fill="url(#fcgr${id})" filter="url(#fcsh${id})"/>
+          <!-- Fold crease shadow at bottom center -->
+          <ellipse cx="55" cy="63" rx="24" ry="5" fill="rgba(68,32,0,0.38)"/>
+          <!-- Paper fortune peeking from the fold -->
+          <rect x="46" y="60" width="18" height="14" rx="2" fill="#FFF8E6" opacity="0.9"/>
+          <line x1="50" y1="65" x2="60" y2="65" stroke="#D4AE58" stroke-width="0.9" opacity="0.65"/>
+          <line x1="50" y1="69" x2="60" y2="69" stroke="#D4AE58" stroke-width="0.9" opacity="0.65"/>
+          <!-- Left wing highlight (gloss) -->
+          <path d="M28,11 C38,16 50,31 54,50"
+                stroke="rgba(255,255,255,0.3)" stroke-width="3.5"
+                fill="none" stroke-linecap="round"/>
+          <!-- Right wing highlight -->
+          <path d="M82,11 C72,16 60,31 56,50"
+                stroke="rgba(255,255,255,0.22)" stroke-width="3"
+                fill="none" stroke-linecap="round"/>
+          <!-- Left wing depth shadow line -->
+          <path d="M55,63 C52,54 44,40 34,26"
+                stroke="rgba(80,38,0,0.14)" stroke-width="2" fill="none"/>
         </svg>`;
       }
 
       // ── State ─────────────────────────────────────────────────
-      let active     = false;
+      let active = false;
       let currentPicks = [];
-      const NUMS     = ['一','二','三'];
+      const NUMS = ['一', '二', '三'];
 
       // ── Render cookies ────────────────────────────────────────
-      function renderCookies() {
-        active       = false;
-        currentPicks = pickFortunes(3);
+      function renderCookies(animateIn = false) {
+        active        = false;
+        currentPicks  = pickFortunes(3);
         const container = $('fc-cookies');
         container.innerHTML = '';
 
         currentPicks.forEach((fortuneIdx, i) => {
           const btn = document.createElement('button');
-          btn.className = 'fc-cookie-btn';
-          btn.dataset.pick = i;
+          btn.className  = 'fc-cookie-btn';
           btn.innerHTML = `
-            <div class="fc-cookie-wrap" id="fcw${i}">
+            <div class="fc-cookie-wrap">
               <div class="fc-whole">${cookieSVG(i)}</div>
             </div>
             <span class="fc-cookie-num">${NUMS[i]}</span>
           `;
+          if (animateIn) {
+            btn.style.opacity   = '0';
+            btn.style.transform = 'scale(0.3) translateY(32px) rotate(-18deg)';
+          }
           btn.addEventListener('click', () => onCookiePick(btn, i, fortuneIdx));
           container.appendChild(btn);
         });
+
+        if (animateIn) {
+          document.querySelectorAll('.fc-cookie-btn').forEach((btn, i) => {
+            setTimeout(() => {
+              btn.style.opacity   = '';
+              btn.style.transform = '';
+              btn.style.animation = `fc-shuffle-in 520ms ${i * 85}ms cubic-bezier(.34,1.56,.64,1) both`;
+            }, 20);
+          });
+        }
 
         $('fc-scroll').hidden  = true;
         $('fc-actions').hidden = true;
         $('fc-prompt').hidden  = false;
       }
 
-      // ── Cookie pick ───────────────────────────────────────────
+      // ── Cookie picked ─────────────────────────────────────────
       function onCookiePick(btn, pickIdx, fortuneIdx) {
         if (active) return;
         active = true;
 
         $('fc-prompt').hidden = true;
 
-        // Fade out other two cookies
+        // Fade out the two unchosen cookies
         document.querySelectorAll('.fc-cookie-btn').forEach((b, i) => {
-          if (i !== pickIdx) {
-            b.classList.add('fc-used');
-          }
+          if (i !== pickIdx) b.classList.add('fc-used');
         });
 
         btn.classList.add('fc-selected');
-        crackCookie(btn, pickIdx, fortuneIdx);
+
+        // Brief shake before crack
+        btn.style.animation = 'fc-pre-crack 200ms ease';
+        setTimeout(() => crackCookie(btn, fortuneIdx), 220);
       }
 
-      function crackCookie(btn, pickIdx, fortuneIdx) {
+      // ── Crack: vertical left/right split ──────────────────────
+      function crackCookie(btn, fortuneIdx) {
         const wrap    = btn.querySelector('.fc-cookie-wrap');
         const svgHTML = btn.querySelector('.fc-whole').innerHTML;
 
-        // Replace whole with two halves for split animation
+        // Replace whole cookie with left and right halves
+        // Each half is the same SVG but clipped to its side —
+        // left half shows the left wing, right half shows the right wing
         wrap.innerHTML = `
-          <div class="fc-half fc-half-t">${svgHTML}</div>
-          <div class="fc-half fc-half-b">${svgHTML}</div>
+          <div class="fc-half fc-half-l">${svgHTML}</div>
+          <div class="fc-half fc-half-r">${svgHTML}</div>
         `;
         wrap.classList.add('fc-cracking');
 
-        // Reveal scroll after crack animation completes
-        setTimeout(() => revealFortune(fortuneIdx), 750);
+        setTimeout(() => revealFortune(fortuneIdx), 800);
       }
 
-      // ── Reveal fortune ────────────────────────────────────────
+      // ── Reveal fortune scroll ─────────────────────────────────
       function revealFortune(fortuneIdx) {
         markFortuneSeen(fortuneIdx);
         const [icon, category, text, rarity] = F[fortuneIdx];
 
         const rarityLabel = rarity === 2
           ? '✦ Ultra Rare Fortune ✦'
-          : rarity === 1
-          ? '✦ Rare Fortune ✦'
-          : '';
-
+          : rarity === 1 ? '✦ Rare Fortune ✦' : '';
         const rarityClass = rarity === 2 ? 'ultra' : rarity === 1 ? 'rare' : '';
 
         const scrollEl = $('fc-scroll');
         scrollEl.innerHTML = `
           <span class="fc-scroll-curl"></span>
-          <div class="fc-category-badge">${icon} &nbsp;${category}</div>
+          <div class="fc-category-badge">${icon}&nbsp;&nbsp;${category}</div>
           <p class="fc-fortune-text">${text}</p>
-          ${rarityLabel ? `<p class="fc-rarity-badge ${rarityClass}">${rarityLabel}</p>` : ''}
+          ${rarityLabel
+            ? `<p class="fc-rarity-badge ${rarityClass}">${rarityLabel}</p>`
+            : ''}
           <span class="fc-scroll-curl bot"></span>
         `;
         scrollEl.hidden = false;
 
-        // Ultra-rare sparkles
+        // Ultra-rare: animated gold sparkles around the scroll
         if (rarity === 2) {
-          const positions = [
-            {top:'-10px',left:'10px',delay:'0s'},
-            {top:'-10px',right:'10px',delay:'0.4s'},
-            {bottom:'10px',left:'15px',delay:'0.8s'},
-            {bottom:'10px',right:'15px',delay:'1.1s'},
-            {top:'40%',left:'-12px',delay:'0.2s'},
-            {top:'40%',right:'-12px',delay:'0.6s'},
-          ];
-          positions.forEach(pos => {
+          [
+            { top:'-10px', left:'12px',  animationDelay:'0s'   },
+            { top:'-10px', right:'12px', animationDelay:'0.4s' },
+            { bottom:'6px', left:'16px', animationDelay:'0.8s' },
+            { bottom:'6px', right:'16px',animationDelay:'1.1s' },
+            { top:'40%',   left:'-13px', animationDelay:'0.2s' },
+            { top:'40%',   right:'-13px',animationDelay:'0.6s' },
+          ].forEach(pos => {
             const sp = document.createElement('span');
             sp.className = 'fc-sparkle';
             sp.textContent = '✦';
@@ -4168,16 +4240,34 @@
         }
 
         $('fc-actions').hidden = false;
+
+        // Smoothly scroll modal to show fortune
+        const modal = document.getElementById('dilxhan-fort-modal');
+        setTimeout(() => modal.scrollTo({ top: modal.scrollHeight, behavior:'smooth' }), 120);
       }
 
-      // ── Another cookie ────────────────────────────────────────
-      $('fc-another').addEventListener('click', renderCookies);
+      // ── Crack Another — fade out all, shuffle in fresh ones ───
+      $('fc-another').addEventListener('click', () => {
+        const container = $('fc-cookies');
+
+        // Fade + shrink whole cookie area as one unit
+        container.style.transition = 'opacity 280ms ease, transform 280ms ease';
+        container.style.opacity    = '0';
+        container.style.transform  = 'scale(0.85)';
+
+        $('fc-scroll').hidden  = true;
+        $('fc-actions').hidden = true;
+
+        setTimeout(() => {
+          container.style.transition = '';
+          container.style.opacity    = '';
+          container.style.transform  = '';
+          renderCookies(true); // fresh pick + shuffle-in animation
+        }, 310);
+      });
 
       // ── Cleanup ───────────────────────────────────────────────
-      function cleanup() {
-        overlay.remove();
-        done();
-      }
+      function cleanup() { overlay.remove(); done(); }
       $('dilxhan-fort-close').addEventListener('click', cleanup);
       overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(); });
 
