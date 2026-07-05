@@ -3666,6 +3666,588 @@
   };
 
   // ════════════════════════════════════════════════════════════
+  //  FORTUNE  — Japanese-themed fortune cookie reveal
+  //
+  //  Three cookies shown. User picks one. It cracks open and
+  //  a paper scroll unfurls with a fortune.
+  //
+  //  114 fortunes across 12 categories with rarity weighting:
+  //    Common (96%): 🍀 💪 ❤️ 🌞 💰 🌍 ✨ 😄 🎮 🎲
+  //    Rare   (3.3%): 🌈
+  //    Ultra  (0.6%): 👑
+  //
+  //  localStorage tracks seen fortunes so repeats are rare.
+  //  After 70% of fortunes seen the tracker resets.
+  // ════════════════════════════════════════════════════════════
+
+  ANIMATIONS['fortune'] = {
+    run({ done }) {
+      if (document.getElementById('dilxhan-fort-overlay')) { done(); return; }
+
+      // ── CSS ──────────────────────────────────────────────────
+      if (!document.getElementById('dilxhan-fort-style')) {
+        const s = document.createElement('style');
+        s.id = 'dilxhan-fort-style';
+        s.textContent = `
+          #dilxhan-fort-overlay {
+            position:fixed; inset:0; z-index:10001;
+            background:rgba(6,3,1,0.93);
+            backdrop-filter:blur(14px);
+            display:flex; align-items:center; justify-content:center;
+            animation:fort-fi 350ms ease forwards;
+          }
+          @keyframes fort-fi{from{opacity:0}to{opacity:1}}
+
+          #dilxhan-fort-modal {
+            position:relative; z-index:1;
+            background:#110C06;
+            border:1px solid rgba(180,130,40,0.32);
+            border-radius:6px;
+            padding:32px 22px 22px;
+            width:min(400px,94vw);
+            max-height:92vh; overflow-y:auto;
+            box-shadow:0 0 0 1px rgba(180,130,40,0.1),0 0 70px rgba(0,0,0,0.8),inset 0 0 100px rgba(160,90,10,0.04);
+            font-family:inherit; color:#F0DDB8;
+            background-image:
+              repeating-linear-gradient(90deg,rgba(180,130,40,0.025) 0,rgba(180,130,40,0.025) 1px,transparent 1px,transparent 40px),
+              repeating-linear-gradient(0deg,rgba(180,130,40,0.025) 0,rgba(180,130,40,0.025) 1px,transparent 1px,transparent 40px);
+          }
+          #dilxhan-fort-modal::-webkit-scrollbar{width:3px}
+          #dilxhan-fort-modal::-webkit-scrollbar-thumb{background:rgba(180,130,40,0.25);border-radius:2px}
+
+          #dilxhan-fort-close {
+            position:absolute; top:12px; right:14px; z-index:10;
+            width:28px; height:28px; border-radius:50%;
+            background:rgba(180,130,40,0.08);
+            border:1px solid rgba(180,130,40,0.22);
+            color:rgba(180,130,40,0.5); font-size:12px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 150ms;
+          }
+          #dilxhan-fort-close:hover{background:rgba(180,130,40,0.16);color:#C9A84C;border-color:rgba(180,130,40,0.5)}
+
+          .fc-divider {
+            height:1px; margin:6px 0;
+            background:linear-gradient(90deg,transparent,rgba(180,130,40,0.38),transparent);
+          }
+          .fc-seal {
+            width:10px; height:10px; border-radius:50%;
+            background:#8B1A1A; display:inline-block;
+            box-shadow:0 0 8px rgba(139,26,26,0.7);
+          }
+          .fc-title-area {
+            text-align:center; margin-bottom:22px;
+            display:flex; flex-direction:column; align-items:center; gap:5px;
+          }
+          .fc-jp { font-size:10px; letter-spacing:.45em; color:rgba(180,130,40,0.5); }
+          .fc-main-title {
+            font-family:'Fraunces',Georgia,serif;
+            font-size:20px; font-weight:900; letter-spacing:.12em;
+            color:#C9A84C; text-shadow:0 0 22px rgba(201,168,76,0.3);
+          }
+          .fc-seals { display:flex; gap:8px; align-items:center; }
+
+          #fc-prompt {
+            text-align:center; font-size:10px; letter-spacing:.18em;
+            color:rgba(180,130,40,0.45); margin-bottom:20px; text-transform:uppercase;
+          }
+
+          #fc-cookies {
+            display:flex; justify-content:center; gap:14px; margin-bottom:18px;
+          }
+
+          .fc-cookie-btn {
+            background:none; border:none; cursor:pointer;
+            display:flex; flex-direction:column; align-items:center; gap:7px;
+            padding:0; transition:transform 220ms; position:relative;
+            width:100px;
+          }
+          .fc-cookie-btn:hover:not(.fc-used):not(.fc-selected) {
+            transform:translateY(-8px) scale(1.06);
+          }
+          .fc-cookie-btn.fc-used {
+            cursor:default; opacity:0.22; pointer-events:none;
+            transform:scale(0.92) !important;
+            transition:all 400ms;
+          }
+          .fc-cookie-btn.fc-selected { cursor:default; }
+
+          .fc-cookie-wrap { position:relative; width:100px; height:76px; }
+          .fc-svg { width:100px; height:76px; display:block; }
+
+          /* Cookie halves — for crack animation */
+          .fc-half {
+            position:absolute; inset:0; pointer-events:none;
+          }
+          .fc-half-t { clip-path:polygon(0 0,100% 0,100% 50%,0 50%); }
+          .fc-half-b { clip-path:polygon(0 50%,100% 50%,100% 100%,0 100%); }
+
+          .fc-cracking .fc-half-t {
+            animation:fc-split-t 680ms cubic-bezier(.4,0,.2,1) forwards;
+          }
+          .fc-cracking .fc-half-b {
+            animation:fc-split-b 680ms cubic-bezier(.4,0,.2,1) forwards;
+          }
+          @keyframes fc-split-t {
+            0%  {transform:none;opacity:1}
+            100%{transform:translate(-16px,-24px) rotate(-24deg);opacity:0.15}
+          }
+          @keyframes fc-split-b {
+            0%  {transform:none;opacity:1}
+            100%{transform:translate(16px,20px) rotate(20deg);opacity:0.15}
+          }
+
+          .fc-cookie-num {
+            font-size:11px; letter-spacing:.12em;
+            color:rgba(180,130,40,0.35);
+          }
+
+          /* Fortune scroll */
+          #fc-scroll {
+            background:linear-gradient(180deg,#F9EDD2,#F3E4B6,#F9EDD2);
+            border:1px solid rgba(150,105,35,0.4);
+            border-radius:3px; padding:20px 18px 16px;
+            box-shadow:0 6px 40px rgba(0,0,0,0.45),inset 0 0 30px rgba(150,105,35,0.06);
+            margin-bottom:14px; position:relative;
+            transform-origin:top center;
+            animation:fc-unfurl 700ms cubic-bezier(.4,0,.2,1) forwards;
+          }
+          @keyframes fc-unfurl {
+            0% {transform:scaleY(0);opacity:0}
+            65%{transform:scaleY(1);opacity:1}
+            100%{transform:scaleY(1);opacity:1}
+          }
+          /* Scroll edge curl effect */
+          .fc-scroll-curl {
+            display:block; height:5px; margin:0 -18px;
+            background:linear-gradient(180deg,rgba(110,75,15,0.2),transparent);
+            border-radius:3px 3px 0 0;
+          }
+          .fc-scroll-curl.bot {
+            margin-top:14px; margin-bottom:-16px;
+            transform:rotate(180deg); border-radius:3px 3px 0 0;
+          }
+
+          .fc-category-badge {
+            display:flex; align-items:center; justify-content:center; gap:5px;
+            font-size:10px; letter-spacing:.13em; text-transform:uppercase;
+            color:rgba(90,55,10,0.6); margin:10px auto 14px;
+            border:1px solid rgba(150,105,35,0.28);
+            border-radius:20px; padding:3px 10px;
+            width:fit-content;
+          }
+
+          .fc-fortune-text {
+            font-family:Georgia,'Times New Roman',serif;
+            font-size:clamp(13px,3.6vw,16px); line-height:1.78;
+            color:#261605; text-align:center; font-style:italic;
+          }
+
+          .fc-rarity-badge {
+            text-align:center; font-size:9px; letter-spacing:.2em;
+            color:rgba(90,55,10,0.38); margin-top:12px; text-transform:uppercase;
+          }
+          .fc-rarity-badge.rare { color:#8B1A1A; font-weight:600; }
+          .fc-rarity-badge.ultra {
+            color:#B8860B; font-weight:700; font-size:10px;
+            animation:fc-shimmer 1.8s ease-in-out infinite;
+          }
+          @keyframes fc-shimmer {
+            0%,100%{text-shadow:0 0 6px rgba(201,168,76,0.5)}
+            50%    {text-shadow:0 0 18px rgba(201,168,76,1),0 0 36px rgba(201,168,76,0.4)}
+          }
+
+          /* Ultra-rare sparkles */
+          .fc-sparkle {
+            position:absolute; pointer-events:none; font-size:11px; color:#C9A84C;
+            animation:fc-sp 1.4s ease-in-out infinite;
+          }
+          @keyframes fc-sp {
+            0%,100%{opacity:0;transform:scale(0.4)}
+            50%    {opacity:1;transform:scale(1.3)}
+          }
+
+          #fc-actions { display:flex; justify-content:center; margin-top:2px; }
+          .fc-action-btn {
+            background:rgba(180,130,40,0.08);
+            border:1px solid rgba(180,130,40,0.3);
+            border-radius:4px; padding:10px 22px;
+            color:rgba(200,160,60,0.75); font-size:11px;
+            letter-spacing:.14em; cursor:pointer; transition:all 160ms;
+            font-family:inherit;
+          }
+          .fc-action-btn:hover {
+            background:rgba(180,130,40,0.16); color:#C9A84C;
+            border-color:rgba(180,130,40,0.55);
+          }
+        `;
+        document.head.appendChild(s);
+      }
+
+      // ── Fortune data ──────────────────────────────────────────
+      // [icon, categoryName, text, rarity]  rarity: 0=common 1=rare 2=ultra
+      const F = [
+        // 🍀 Lucky
+        ['🍀','Lucky','Fortune favors those who make their own luck.',0],
+        ['🍀','Lucky','The stars have aligned in your favor — step boldly.',0],
+        ['🍀','Lucky','An unexpected gift is making its way to you.',0],
+        ['🍀','Lucky','Doors that have been closed will soon swing wide open.',0],
+        ['🍀','Lucky','You will find something valuable in an unexpected place.',0],
+        ['🍀','Lucky','A coin found today is more than money — it is a sign.',0],
+        ['🍀','Lucky','Luck is not chance — it is the residue of your effort.',0],
+        ['🍀','Lucky','The universe is conspiring in your favor. Let it.',0],
+        ['🍀','Lucky','Tomorrow\'s luck begins with today\'s courage.',0],
+        ['🍀','Lucky','Something long overdue is finally on its way to you.',0],
+        // 💪 Motivational
+        ['💪','Motivational','The mountain you fear to climb has the best view.',0],
+        ['💪','Motivational','Every expert was once a beginner who refused to quit.',0],
+        ['💪','Motivational','You have survived every difficult day so far. Today is no different.',0],
+        ['💪','Motivational','The only failure is the one from which you learn nothing.',0],
+        ['💪','Motivational','Rest if you must, but never quit.',0],
+        ['💪','Motivational','Your potential has no ceiling — only the floor you choose.',0],
+        ['💪','Motivational','The hardest step is always the first. You have already taken it.',0],
+        ['💪','Motivational','Small progress is still progress. Keep moving.',0],
+        ['💪','Motivational','You are closer to your goal than you were yesterday.',0],
+        ['💪','Motivational','Believe in yourself as fiercely as you believe in others.',0],
+        // ❤️ Kindness & Relationships
+        ['❤️','Kindness','The one who makes you laugh is worth more than gold.',0],
+        ['❤️','Kindness','A kind word costs nothing but means everything.',0],
+        ['❤️','Kindness','Tell someone you love them today. Tomorrow is never guaranteed.',0],
+        ['❤️','Kindness','Your heart knows what your mind has not yet accepted.',0],
+        ['❤️','Kindness','The friends who sit with you in silence are the truest.',0],
+        ['❤️','Kindness','Love is not about perfection — it is about showing up anyway.',0],
+        ['❤️','Kindness','Someone is thinking of you more than you know.',0],
+        ['❤️','Kindness','The kindness you show strangers echoes through eternity.',0],
+        ['❤️','Kindness','Forgiveness is a gift you give yourself.',0],
+        ['❤️','Kindness','A relationship that makes you better is worth fighting for.',0],
+        // 🌞 Daily Positivity
+        ['🌞','Positivity','Today is a blank page. Write something beautiful.',0],
+        ['🌞','Positivity','The sun rose again today. So did you. That is enough.',0],
+        ['🌞','Positivity','Even slow days move you forward.',0],
+        ['🌞','Positivity','You don\'t need to have it all figured out. Just begin.',0],
+        ['🌞','Positivity','Good things are already on their way to you.',0],
+        ['🌞','Positivity','Notice three beautiful things today. They are waiting.',0],
+        ['🌞','Positivity','Your presence changes every room you walk into.',0],
+        ['🌞','Positivity','Today\'s simple moments are tomorrow\'s cherished memories.',0],
+        ['🌞','Positivity','Everything you need is already within your reach.',0],
+        ['🌞','Positivity','The best part of today has not happened yet.',0],
+        // 💰 Success & Growth
+        ['💰','Success','The seed of your greatest success is planted in today\'s effort.',0],
+        ['💰','Success','Wealth is not only money — it is time, health, and peace.',0],
+        ['💰','Success','A great idea will not wait — write it down now.',0],
+        ['💰','Success','Success follows those who work even when no one is watching.',0],
+        ['💰','Success','The investment you make in yourself always pays dividends.',0],
+        ['💰','Success','Your next chapter is better than your last — start writing it.',0],
+        ['💰','Success','Patience and persistence are the parents of achievement.',0],
+        ['💰','Success','One good habit repeated is worth a thousand ideas abandoned.',0],
+        ['💰','Success','You are building something that will matter. Keep going.',0],
+        ['💰','Success','The goal is not to be rich. The goal is to be free.',0],
+        // 🌍 Adventure
+        ['🌍','Adventure','Say yes to the thing you have been putting off for months.',0],
+        ['🌍','Adventure','The road not taken is still there, patiently waiting.',0],
+        ['🌍','Adventure','Adventure is not found on a map. It is found in an open mind.',0],
+        ['🌍','Adventure','The most interesting people have been lost and found themselves.',0],
+        ['🌍','Adventure','Go somewhere you have never been — even just a new street.',0],
+        ['🌍','Adventure','The world is a book. Those who don\'t travel read only one page.',0],
+        ['🌍','Adventure','Your next great story begins with a single unfamiliar step.',0],
+        ['🌍','Adventure','The journey changes you before the destination even arrives.',0],
+        ['🌍','Adventure','Try the thing on the menu you cannot pronounce. It will be perfect.',0],
+        ['🌍','Adventure','A new city, a new dish, a new conversation — all are waiting.',0],
+        // ✨ Mysterious
+        ['✨','Mysterious','The answer you seek is hiding in plain sight.',0],
+        ['✨','Mysterious','Not all who wander are lost — some have found something better.',0],
+        ['✨','Mysterious','The version of you from five years ago would be amazed right now.',0],
+        ['✨','Mysterious','Reality is but a consensus. Dream differently.',0],
+        ['✨','Mysterious','Something ancient recognizes something ancient in you.',0],
+        ['✨','Mysterious','The question matters more than the answer you assume is right.',0],
+        ['✨','Mysterious','There are forces with no name — and they are on your side.',0],
+        ['✨','Mysterious','You are exactly where you need to be, even if you can\'t see why.',0],
+        ['✨','Mysterious','The universe is 13.8 billion years old. Today was made for you.',0],
+        ['✨','Mysterious','You have met this person before. You do not remember where.',0],
+        // 😄 Funny
+        ['😄','Funny','Delete your browser history. Just in case.',0],
+        ['😄','Funny','Your future self is judging your choices. Still rooting for you though.',0],
+        ['😄','Funny','Technically, everything you have ever eaten is a risk you survived.',0],
+        ['😄','Funny','Someone will ask if you\'re okay today. You will say \'fine.\'',0],
+        ['😄','Funny','The snack you\'re thinking about — eat it. Life is short.',0],
+        ['😄','Funny','You are one nap away from being a completely different person.',0],
+        ['😄','Funny','A spreadsheet won\'t solve your problems but it will make you feel better.',0],
+        ['😄','Funny','Your plants are judging you, but they still love you.',0],
+        ['😄','Funny','Your Wi-Fi speed is inversely proportional to meeting urgency.',0],
+        ['😄','Funny','Somewhere, someone is using Comic Sans unironically. Send help.',0],
+        // 🎮 Gamer
+        ['🎮','Gamer','It\'s dangerous to go alone. Take this fortune.',0],
+        ['🎮','Gamer','You have been playing on hard mode your whole life. You didn\'t notice.',0],
+        ['🎮','Gamer','The tutorial was lying. Real life has no instructions.',0],
+        ['🎮','Gamer','Achievement unlocked: You opened a fortune cookie.',0],
+        ['🎮','Gamer','Save often. Checkpoints in real life are rare.',0],
+        ['🎮','Gamer','The final boss was inside you all along. You are defeating it.',0],
+        ['🎮','Gamer','You are the main character. Act accordingly.',0],
+        ['🎮','Gamer','Press F to pay respects — or just send the message you\'ve been drafting.',0],
+        ['🎮','Gamer','New quest available: Be kind to someone today.',0],
+        ['🎮','Gamer','Your inventory is full. Time to drop some old baggage.',0],
+        // 🎲 Whimsical
+        ['🎲','Whimsical','A duck somewhere has already thought of this exact same thing.',0],
+        ['🎲','Whimsical','The last crumble in the cookie jar is always the sweetest.',0],
+        ['🎲','Whimsical','You have been mispronouncing something forever. It doesn\'t matter.',0],
+        ['🎲','Whimsical','The left sock is always the one that disappears. Science has no answer.',0],
+        ['🎲','Whimsical','Somewhere a pigeon is judging your outfit. The pigeon is wrong.',0],
+        ['🎲','Whimsical','You will find a pen that works today. Treasure it.',0],
+        ['🎲','Whimsical','The elevator will arrive immediately today. You have earned this.',0],
+        ['🎲','Whimsical','A snail is completing its journey right now, unbothered.',0],
+        ['🎲','Whimsical','Your future self will find this moment hilarious.',0],
+        ['🎲','Whimsical','An unexpected umbrella will appear exactly when you need it.',0],
+        // 🌈 Rare
+        ['🌈','Rare Fortune','You carry the memories of someone who loved you before you were born.',1],
+        ['🌈','Rare Fortune','This fortune was written for this exact moment in your life.',1],
+        ['🌈','Rare Fortune','You will create something that outlasts you. You have already begun.',1],
+        ['🌈','Rare Fortune','The rarest element in the universe is a kind heart that stays kind. You have one.',1],
+        ['🌈','Rare Fortune','In a simulation of infinite possibilities, you exist. The odds were impossible.',1],
+        ['🌈','Rare Fortune','You have changed someone\'s life without knowing it. They remember you.',1],
+        ['🌈','Rare Fortune','The world is slightly better because you are in it today.',1],
+        ['🌈','Rare Fortune','Fewer than 1 in 20 receive this fortune. May it serve you well.',1],
+        // 👑 Ultra-Rare
+        ['👑','Ultra Rare','🌟 You found the hidden fortune. Legend says whoever reads this will have an extraordinary day. Today is that day. Go.',2],
+        ['👑','Ultra Rare','👑 Fortune #001 — kept hidden for years, found only by those who look. You looked. The universe noticed.',2],
+        ['👑','Ultra Rare','✨ The cookie did not choose you by accident. This fortune has been waiting specifically for you.',2],
+        ['👑','Ultra Rare','🎴 Less than 0.1% of fortune readers ever see this. You are statistically improbable. Embrace it.',2],
+        ['👑','Ultra Rare','🔮 In ancient times, one fortune was kept sacred, never spoken aloud. This is that fortune: you are going to be okay.',2],
+        ['👑','Ultra Rare','💎 The first person to crack a fortune cookie found nothing inside. They made their own fortune instead. Like you will today.',2],
+      ];
+
+      // ── DOM ───────────────────────────────────────────────────
+      const overlay = document.createElement('div');
+      overlay.id = 'dilxhan-fort-overlay';
+      overlay.innerHTML = `
+        <div id="dilxhan-fort-modal">
+          <button id="dilxhan-fort-close">✕</button>
+
+          <div class="fc-title-area">
+            <div class="fc-divider"></div>
+            <div class="fc-seals">
+              <span class="fc-seal"></span>
+              <div>
+                <div class="fc-jp">お み く じ</div>
+                <div class="fc-main-title">FORTUNE COOKIE</div>
+              </div>
+              <span class="fc-seal"></span>
+            </div>
+            <div class="fc-divider"></div>
+          </div>
+
+          <p id="fc-prompt">Choose your fortune</p>
+          <div id="fc-cookies"></div>
+          <div id="fc-scroll" hidden></div>
+          <div id="fc-actions" hidden>
+            <button class="fc-action-btn" id="fc-another">🥠 &nbsp;Crack Another Cookie</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      // ── Helpers ───────────────────────────────────────────────
+      const $ = id => document.getElementById(id);
+
+      function getSeenFortunes() {
+        try { return new Set(JSON.parse(localStorage.getItem('dilxhan-fort-seen') || '[]')); }
+        catch(e) { return new Set(); }
+      }
+
+      function markFortuneSeen(idx) {
+        const seen = getSeenFortunes();
+        seen.add(idx);
+        // Reset oldest half once 70% of fortunes are seen
+        if (seen.size > Math.floor(F.length * 0.7)) {
+          const arr = [...seen];
+          arr.slice(0, Math.floor(arr.length / 2)).forEach(i => seen.delete(i));
+        }
+        try { localStorage.setItem('dilxhan-fort-seen', JSON.stringify([...seen])); }
+        catch(e) {}
+      }
+
+      function pickFortunes(count) {
+        const seen = getSeenFortunes();
+        const weights = F.map((f, i) => {
+          if (seen.has(i)) return 0;
+          return f[3] === 2 ? 1 : f[3] === 1 ? 4 : 10;
+        });
+
+        const chosen = [];
+        const used   = new Set();
+
+        for (let pick = 0; pick < count; pick++) {
+          const total = weights.reduce((a, b) => a + b, 0);
+          if (total === 0) break;
+          let r = Math.random() * total;
+          for (let i = 0; i < F.length; i++) {
+            if (used.has(i)) continue;
+            r -= weights[i];
+            if (r <= 0) {
+              chosen.push(i);
+              used.add(i);
+              weights[i] = 0;
+              break;
+            }
+          }
+        }
+        // Pad with any unseen fortune if not enough
+        while (chosen.length < count) {
+          const fallback = F.findIndex((_, i) => !chosen.includes(i));
+          if (fallback === -1) break;
+          chosen.push(fallback);
+        }
+        return chosen;
+      }
+
+      // ── Cookie SVG ────────────────────────────────────────────
+      function cookieSVG(id) {
+        return `<svg class="fc-svg" viewBox="0 0 100 76" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="fcg${id}" cx="38%" cy="30%">
+              <stop offset="0%" stop-color="#F6C86A"/>
+              <stop offset="55%" stop-color="#D4912A"/>
+              <stop offset="100%" stop-color="#9A6010"/>
+            </radialGradient>
+            <filter id="fcs${id}" x="-15%" y="-15%" width="130%" height="130%">
+              <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.35"/>
+            </filter>
+          </defs>
+          <path d="M50,6 Q78,6 90,32 Q82,38 65,38 L35,38 Q18,38 10,32 Q22,6 50,6 Z"
+                fill="url(#fcg${id})" filter="url(#fcs${id})"/>
+          <path d="M10,32 Q18,38 35,38 L65,38 Q82,38 90,32 Q88,60 65,68 Q50,72 35,68 Q12,60 10,32 Z"
+                fill="url(#fcg${id})" opacity="0.88" filter="url(#fcs${id})"/>
+          <ellipse cx="50" cy="38" rx="38" ry="4" fill="rgba(55,28,0,0.42)"/>
+          <ellipse cx="44" cy="20" rx="22" ry="9" fill="rgba(255,255,255,0.2)"
+                  transform="rotate(-8 44 20)"/>
+        </svg>`;
+      }
+
+      // ── State ─────────────────────────────────────────────────
+      let active     = false;
+      let currentPicks = [];
+      const NUMS     = ['一','二','三'];
+
+      // ── Render cookies ────────────────────────────────────────
+      function renderCookies() {
+        active       = false;
+        currentPicks = pickFortunes(3);
+        const container = $('fc-cookies');
+        container.innerHTML = '';
+
+        currentPicks.forEach((fortuneIdx, i) => {
+          const btn = document.createElement('button');
+          btn.className = 'fc-cookie-btn';
+          btn.dataset.pick = i;
+          btn.innerHTML = `
+            <div class="fc-cookie-wrap" id="fcw${i}">
+              <div class="fc-whole">${cookieSVG(i)}</div>
+            </div>
+            <span class="fc-cookie-num">${NUMS[i]}</span>
+          `;
+          btn.addEventListener('click', () => onCookiePick(btn, i, fortuneIdx));
+          container.appendChild(btn);
+        });
+
+        $('fc-scroll').hidden  = true;
+        $('fc-actions').hidden = true;
+        $('fc-prompt').hidden  = false;
+      }
+
+      // ── Cookie pick ───────────────────────────────────────────
+      function onCookiePick(btn, pickIdx, fortuneIdx) {
+        if (active) return;
+        active = true;
+
+        $('fc-prompt').hidden = true;
+
+        // Fade out other two cookies
+        document.querySelectorAll('.fc-cookie-btn').forEach((b, i) => {
+          if (i !== pickIdx) {
+            b.classList.add('fc-used');
+          }
+        });
+
+        btn.classList.add('fc-selected');
+        crackCookie(btn, pickIdx, fortuneIdx);
+      }
+
+      function crackCookie(btn, pickIdx, fortuneIdx) {
+        const wrap    = btn.querySelector('.fc-cookie-wrap');
+        const svgHTML = btn.querySelector('.fc-whole').innerHTML;
+
+        // Replace whole with two halves for split animation
+        wrap.innerHTML = `
+          <div class="fc-half fc-half-t">${svgHTML}</div>
+          <div class="fc-half fc-half-b">${svgHTML}</div>
+        `;
+        wrap.classList.add('fc-cracking');
+
+        // Reveal scroll after crack animation completes
+        setTimeout(() => revealFortune(fortuneIdx), 750);
+      }
+
+      // ── Reveal fortune ────────────────────────────────────────
+      function revealFortune(fortuneIdx) {
+        markFortuneSeen(fortuneIdx);
+        const [icon, category, text, rarity] = F[fortuneIdx];
+
+        const rarityLabel = rarity === 2
+          ? '✦ Ultra Rare Fortune ✦'
+          : rarity === 1
+          ? '✦ Rare Fortune ✦'
+          : '';
+
+        const rarityClass = rarity === 2 ? 'ultra' : rarity === 1 ? 'rare' : '';
+
+        const scrollEl = $('fc-scroll');
+        scrollEl.innerHTML = `
+          <span class="fc-scroll-curl"></span>
+          <div class="fc-category-badge">${icon} &nbsp;${category}</div>
+          <p class="fc-fortune-text">${text}</p>
+          ${rarityLabel ? `<p class="fc-rarity-badge ${rarityClass}">${rarityLabel}</p>` : ''}
+          <span class="fc-scroll-curl bot"></span>
+        `;
+        scrollEl.hidden = false;
+
+        // Ultra-rare sparkles
+        if (rarity === 2) {
+          const positions = [
+            {top:'-10px',left:'10px',delay:'0s'},
+            {top:'-10px',right:'10px',delay:'0.4s'},
+            {bottom:'10px',left:'15px',delay:'0.8s'},
+            {bottom:'10px',right:'15px',delay:'1.1s'},
+            {top:'40%',left:'-12px',delay:'0.2s'},
+            {top:'40%',right:'-12px',delay:'0.6s'},
+          ];
+          positions.forEach(pos => {
+            const sp = document.createElement('span');
+            sp.className = 'fc-sparkle';
+            sp.textContent = '✦';
+            Object.assign(sp.style, pos);
+            scrollEl.appendChild(sp);
+          });
+        }
+
+        $('fc-actions').hidden = false;
+      }
+
+      // ── Another cookie ────────────────────────────────────────
+      $('fc-another').addEventListener('click', renderCookies);
+
+      // ── Cleanup ───────────────────────────────────────────────
+      function cleanup() {
+        overlay.remove();
+        done();
+      }
+      $('dilxhan-fort-close').addEventListener('click', cleanup);
+      overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(); });
+
+      // ── Init ──────────────────────────────────────────────────
+      renderCookies();
+    },
+  };
+
+  // ════════════════════════════════════════════════════════════
   //  ── TEMPLATE — copy this block to add a new animation ────
   //
   //  Steps:
