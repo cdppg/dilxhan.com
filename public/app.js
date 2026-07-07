@@ -262,6 +262,18 @@ loadSocials();
 loadHobbyProjects();
 initHeroFit();
 
+// ── 👁️සේ URL deep link — ?isay=1 auto-opens the poll modal ──
+// Runs after DOMContentLoaded so animations.js is fully loaded.
+document.addEventListener('DOMContentLoaded', () => {
+  if (new URLSearchParams(window.location.search).has('isay')) {
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('dilxhan:animation', {
+        detail: { key: 'isay' },
+      }));
+    }, 600);
+  }
+});
+
 // Exposed for the next build pass (palette wiring) to reuse:
 window.__dilxhan = {
   iconMarkup,

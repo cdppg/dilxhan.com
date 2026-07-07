@@ -4277,6 +4277,882 @@
   };
 
   // ════════════════════════════════════════════════════════════
+  //  👁️සේ  —  Iසේ  —  Sri Lanka Decides
+  //
+  //  A scrollable opinion poll. Users vote on Sri Lanka's great
+  //  debates. Results are live, vote counts stored in D1.
+  //
+  //  Trigger word : isay
+  //  URL deep link: dilxhan.com/?isay=1  (auto-opens modal)
+  //
+  //  ── HOW TO ADD A QUESTION ──────────────────────────────────
+  //  Add one object to the Q array below.
+  //  Types: 'standard' | 'image' | 'audio'
+  //
+  //  standard: text question, two text choices
+  //  image   : set  q.image  to an image URL; two text choices
+  //  audio   : set  choices[n].audio  to an audio clip URL;
+  //            the play button sits above the vote button
+  //
+  //  The id must be unique — it is the D1 storage key.
+  //  Emoji before each choice label is optional but recommended.
+  //  verdict[0] shown when choice 0 leads, verdict[1] when choice 1 leads.
+  // ════════════════════════════════════════════════════════════
+
+  ANIMATIONS['isay'] = {
+    run({ done }) {
+      if (document.getElementById('dilxhan-isay-overlay')) { done(); return; }
+
+      // ── CSS ──────────────────────────────────────────────────
+      if (!document.getElementById('dilxhan-isay-style')) {
+        const s = document.createElement('style');
+        s.id = 'dilxhan-isay-style';
+        s.textContent = `
+          #dilxhan-isay-overlay {
+            position:fixed; inset:0; z-index:10001;
+            background:rgba(8,3,5,0.8);
+            backdrop-filter:blur(8px);
+            display:flex; align-items:center; justify-content:center;
+            padding:20px; box-sizing:border-box;
+            animation:isay-fi 300ms ease forwards;
+          }
+          @keyframes isay-fi{from{opacity:0}to{opacity:1}}
+
+          #dilxhan-isay-modal {
+            background:#FDFAF8;
+            border-radius:10px;
+            width:min(640px,96vw);
+            max-height:calc(100vh - 40px);
+            display:flex; flex-direction:column; overflow:hidden;
+            box-shadow:0 24px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(141,21,58,0.12);
+          }
+
+          /* ── Header ── */
+          #isay-header {
+            background:#8D153A;
+            padding:14px 18px;
+            display:flex; align-items:center; justify-content:space-between; gap:12px;
+            flex-shrink:0;
+          }
+          #isay-brand {
+            font-family:'Fraunces',Georgia,serif;
+            font-size:22px; font-weight:900;
+            color:#fff; letter-spacing:.04em;
+          }
+          #isay-tagline {
+            font-size:10px; letter-spacing:.12em;
+            color:rgba(255,255,255,0.6);
+            text-transform:uppercase; margin-top:1px;
+          }
+          #isay-hbtns {
+            display:flex; gap:8px; align-items:center; flex-shrink:0;
+          }
+          .isay-hbtn {
+            background:rgba(255,255,255,0.12);
+            border:1px solid rgba(255,255,255,0.22);
+            border-radius:5px; padding:6px 11px;
+            color:#fff; font-size:11px; letter-spacing:.08em;
+            cursor:pointer; transition:all 150ms; font-family:inherit;
+            white-space:nowrap;
+          }
+          .isay-hbtn:hover{background:rgba(255,255,255,0.22)}
+          #isay-close-btn {
+            background:none; border:1px solid rgba(255,255,255,0.22);
+            border-radius:50%; width:28px; height:28px;
+            color:rgba(255,255,255,0.7); font-size:13px; cursor:pointer;
+            display:flex; align-items:center; justify-content:center;
+            transition:all 150ms; flex-shrink:0;
+          }
+          #isay-close-btn:hover{background:rgba(255,255,255,0.15);color:#fff}
+
+          /* ── Body ── */
+          #isay-body {
+            flex:1; overflow-y:auto;
+            padding:20px; display:flex; flex-direction:column; gap:14px;
+          }
+          #isay-body::-webkit-scrollbar{width:4px}
+          #isay-body::-webkit-scrollbar-thumb{background:rgba(141,21,58,0.2);border-radius:2px}
+
+          /* ── Question card ── */
+          .isay-q {
+            background:#fff;
+            border:1px solid rgba(141,21,58,0.1);
+            border-left:3px solid #8D153A;
+            border-radius:0 8px 8px 0;
+            padding:18px 18px 16px;
+            transition:box-shadow 200ms;
+          }
+          .isay-q:hover { box-shadow:0 2px 16px rgba(141,21,58,0.08); }
+
+          .isay-q-img {
+            width:100%; max-height:200px; object-fit:cover;
+            border-radius:6px; margin-bottom:14px; display:block;
+          }
+          .isay-q-text {
+            font-size:15px; font-weight:600; color:#1A0A0E;
+            line-height:1.5; margin:0 0 14px;
+          }
+
+          /* Audio play buttons */
+          .isay-audio-row {
+            display:flex; gap:8px; margin-bottom:12px;
+          }
+          .isay-audio-btn {
+            flex:1; padding:8px 10px;
+            background:rgba(141,21,58,0.05);
+            border:1px solid rgba(141,21,58,0.2);
+            border-radius:6px; color:#8D153A;
+            font-size:12px; letter-spacing:.04em;
+            cursor:pointer; transition:all 150ms;
+            font-family:inherit; text-align:center;
+          }
+          .isay-audio-btn:hover{background:rgba(141,21,58,0.1)}
+          .isay-audio-btn.playing{
+            background:rgba(141,21,58,0.15);
+            border-color:#8D153A; font-weight:600;
+          }
+
+          /* Vote buttons */
+          .isay-choices {
+            display:flex; gap:10px; flex-wrap:wrap;
+          }
+          .isay-vote-btn {
+            flex:1; min-width:120px;
+            padding:12px 10px;
+            border:1.5px solid #8D153A;
+            border-radius:7px;
+            background:transparent; color:#8D153A;
+            font-size:13px; font-weight:500;
+            cursor:pointer; transition:all 180ms;
+            font-family:inherit; text-align:center;
+            line-height:1.4;
+          }
+          .isay-vote-btn:hover{
+            background:#8D153A; color:#fff;
+            transform:translateY(-1px);
+            box-shadow:0 4px 14px rgba(141,21,58,0.3);
+          }
+          .isay-vote-btn:active{transform:translateY(0)}
+
+          /* Results */
+          .isay-results { margin-top:2px; }
+          .isay-bar-row { margin-bottom:11px; }
+          .isay-bar-meta {
+            display:flex; justify-content:space-between; align-items:baseline;
+            margin-bottom:5px;
+          }
+          .isay-bar-label {
+            font-size:13px; color:#1A0A0E; font-weight:500;
+          }
+          .isay-bar-label.mypick::after {
+            content:' ✓'; color:#8D153A; font-weight:700; font-size:12px;
+          }
+          .isay-bar-pct {
+            font-size:13px; font-weight:700; color:#8D153A;
+          }
+          .isay-bar-track {
+            height:8px; background:rgba(141,21,58,0.1);
+            border-radius:4px; overflow:hidden;
+          }
+          .isay-bar-fill {
+            height:100%; border-radius:4px;
+            background:#8D153A; width:0;
+          }
+          .isay-bar-fill.animate {
+            transition:width 750ms cubic-bezier(.4,0,.2,1);
+          }
+          .isay-bar-fill.dim { background:rgba(141,21,58,0.3); }
+          .isay-bar-votes {
+            font-size:11px; color:rgba(26,10,14,0.38);
+            margin-top:3px; letter-spacing:.02em;
+          }
+          .isay-total-votes {
+            font-size:11px; color:rgba(26,10,14,0.38);
+            margin-top:10px; padding-top:10px;
+            border-top:1px solid rgba(141,21,58,0.08);
+            letter-spacing:.02em;
+          }
+          .isay-verdict {
+            margin-top:10px; padding:10px 13px;
+            background:rgba(141,21,58,0.05);
+            border-left:2.5px solid #8D153A;
+            border-radius:0 5px 5px 0;
+            font-size:13px; color:#5A0E23;
+            font-style:italic; line-height:1.55;
+          }
+
+          /* Skip label */
+          .isay-skip {
+            font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+            color:rgba(141,21,58,0.3); text-align:center;
+            margin-top:10px; cursor:default;
+          }
+
+          /* Footer */
+          #isay-footer {
+            padding:22px 20px 20px;
+            border-top:1px solid rgba(141,21,58,0.1);
+            background:rgba(141,21,58,0.025);
+            flex-shrink:0;
+          }
+          .isay-footer-msg {
+            font-size:13px; line-height:1.65; color:rgba(26,10,14,0.55);
+            font-style:italic; margin:0 0 12px; text-align:center;
+          }
+          .isay-inspired {
+            display:block; text-align:center;
+            font-size:11px; letter-spacing:.08em; color:rgba(141,21,58,0.45);
+            text-decoration:none; transition:color 150ms;
+          }
+          .isay-inspired:hover{color:#8D153A}
+
+          /* Copied toast */
+          #isay-toast {
+            position:fixed; bottom:24px; left:50%;
+            transform:translateX(-50%) translateY(10px);
+            background:#1A0A0E; color:#fff;
+            font-size:12px; letter-spacing:.08em;
+            padding:8px 18px; border-radius:999px;
+            pointer-events:none; opacity:0;
+            transition:opacity 200ms, transform 200ms;
+            z-index:10002; white-space:nowrap;
+          }
+          #isay-toast.show {
+            opacity:1; transform:translateX(-50%) translateY(0);
+          }
+
+          @media(max-width:420px){
+            .isay-vote-btn{font-size:12px; padding:10px 8px}
+            #isay-header{flex-wrap:wrap; gap:8px}
+            .isay-hbtn{font-size:10px; padding:5px 8px}
+          }
+        `;
+        document.head.appendChild(s);
+      }
+
+      // ══════════════════════════════════════════════════════════
+      //  QUESTIONS — ADD / EDIT HERE
+      //  Each object = one question card in the modal.
+      //
+      //  TEMPLATE:
+      //  {
+      //    id:       'unique-slug',          // used as D1 key — no spaces
+      //    type:     'standard',             // 'standard' | 'image' | 'audio'
+      //    question: 'Question text?',
+      //    image:    null,                   // URL string (type='image'), else null
+      //    choices: [
+      //      { label: '🥙 Choice A', audio: null },   // audio: URL (type='audio')
+      //      { label: '🫔 Choice B', audio: null },
+      //    ],
+      //    verdict: [
+      //      'Shown when choice 0 is leading.',
+      //      'Shown when choice 1 is leading.',
+      //    ],
+      //  }
+      // ══════════════════════════════════════════════════════════
+      const Q = [
+        {
+          id: 'kottu-hoppers',
+          type: 'standard',
+          question: 'The eternal Sri Lankan debate. Which one wins?',
+          image: null,
+          choices: [
+            { label: '🥩 Kottu', audio: null },
+            { label: '🫔 Hoppers', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The clang of the blade wins every time.',
+            'Sri Lanka has decided. The perfect bowl reigns supreme.',
+          ],
+        },
+        {
+          id: 'colombo-kandy',
+          type: 'standard',
+          question: 'If you had to pick one city to live in forever, which would it be?',
+          image: null,
+          choices: [
+            { label: '🏙️ Colombo', audio: null },
+            { label: '🏔️ Kandy', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The city lights and the chaos win.',
+            'Sri Lanka has decided. The hill capital and its peace win.',
+          ],
+        },
+        {
+          id: 'tea-coffee',
+          type: 'image',
+          question: 'Sri Lanka grows some of the world\'s finest tea. Yet the debate rages on.',
+          image: 'REPLACE_WITH_TEA_VS_COFFEE_IMAGE_URL',
+          choices: [
+            { label: '🍵 Tea', audio: null },
+            { label: '☕ Coffee', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. Ceylon tea remains untouchable.',
+            'Sri Lanka has decided. The coffee wave has finally arrived.',
+          ],
+        },
+        {
+          id: 'beach-hills',
+          type: 'standard',
+          question: 'Two weeks off. No compromises. Where do you actually go?',
+          image: null,
+          choices: [
+            { label: '🏖️ Beach', audio: null },
+            { label: '🌿 Hill Country', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. Salt, sand, and the sound of waves.',
+            'Sri Lanka has decided. Misty mornings in the hills prevail.',
+          ],
+        },
+        {
+          id: 'string-hoppers-pittu',
+          type: 'standard',
+          question: 'Breakfast. No negotiations.',
+          image: null,
+          choices: [
+            { label: '🌾 String Hoppers', audio: null },
+            { label: '🫙 Pittu', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The noodle nest wins breakfast.',
+            'Sri Lanka has decided. Pittu earns its place at the table.',
+          ],
+        },
+        {
+          id: 'pol-sambol-name',
+          type: 'image',
+          question: 'What do you actually call this?',
+          image: 'REPLACE_WITH_POL_SAMBOL_IMAGE_URL',
+          choices: [
+            { label: '🥥 Pol Sambol', audio: null },
+            { label: '🌶️ Coconut Sambol', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. It\'s Pol Sambol and always will be.',
+            'Sri Lanka has decided. Coconut Sambol is perfectly acceptable.',
+          ],
+        },
+        {
+          id: 'train-bus',
+          type: 'standard',
+          question: 'Long distance travel across Sri Lanka. The honest answer.',
+          image: null,
+          choices: [
+            { label: '🚂 Train', audio: null },
+            { label: '🚌 Bus', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The train through the hills wins every time.',
+            'Sri Lanka has decided. The bus gets you there. Somehow. Eventually.',
+          ],
+        },
+        {
+          id: 'pineapple-pizza',
+          type: 'standard',
+          question: 'The global debate finally reaches Sri Lanka.',
+          image: null,
+          choices: [
+            { label: '✅ Pineapple belongs on pizza', audio: null },
+            { label: '❌ That is a crime', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. Sweet and savoury is accepted here.',
+            'Sri Lanka has decided. Some lines shall never be crossed.',
+          ],
+        },
+        {
+          id: 'sl-time',
+          type: 'standard',
+          question: 'Someone says "I\'ll be there at 3pm." What does that actually mean in Sri Lanka?',
+          image: null,
+          choices: [
+            { label: '⏰ 3pm. On the dot.', audio: null },
+            { label: '😅 Sometime after 4. Maybe.', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. Punctuality exists here after all.',
+            'Sri Lanka has decided. SL time is a cultural institution and we are keeping it.',
+          ],
+        },
+        {
+          id: 'watalappam-icecream',
+          type: 'image',
+          question: 'End of a meal. One dessert. No discussion.',
+          image: 'REPLACE_WITH_WATALAPPAM_IMAGE_URL',
+          choices: [
+            { label: '🍮 Watalappam', audio: null },
+            { label: '🍦 Ice Cream', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The traditional steamed custard wins.',
+            'Sri Lanka has decided. Ice cream transcends all culture and season.',
+          ],
+        },
+        {
+          id: 'cricket-religion',
+          type: 'standard',
+          question: 'Be honest with yourself.',
+          image: null,
+          choices: [
+            { label: '🙏 Cricket is a religion in Sri Lanka', audio: null },
+            { label: '🏏 It\'s just a sport. Calm down.', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The stadium is the temple.',
+            'Sri Lanka has decided. A few people managed to stay neutral. Barely.',
+          ],
+        },
+        {
+          id: 'abroad-stay',
+          type: 'standard',
+          question: 'If the choice were fully yours, right now, what would you do?',
+          image: null,
+          choices: [
+            { label: '🇱🇰 Stay in Sri Lanka', audio: null },
+            { label: '✈️ Go abroad', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The island holds its people after all.',
+            'Sri Lanka has decided. The world is calling and we are answering.',
+          ],
+        },
+        {
+          id: 'aunty-restaurant',
+          type: 'standard',
+          question: 'You\'re genuinely hungry. Where do you actually want to eat?',
+          image: null,
+          choices: [
+            { label: '👩‍🍳 Aunty\'s cooking', audio: null },
+            { label: '🍽️ A proper restaurant', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. No restaurant in the world beats home food.',
+            'Sri Lanka has decided. Sometimes you just want a menu and someone else to cook.',
+          ],
+        },
+        {
+          id: 'tuk-tuk',
+          type: 'standard',
+          question: 'Is the three-wheeler the greatest contribution to Sri Lankan daily life?',
+          image: null,
+          choices: [
+            { label: '🛺 Absolutely yes. The GOAT.', audio: null },
+            { label: '🤔 We have more important contributions', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The tuk-tuk is untouchable. Culturally iconic.',
+            'Sri Lanka has decided. We humbly acknowledge our other contributions.',
+          ],
+        },
+        {
+          id: 'vesak-christmas',
+          type: 'standard',
+          question: 'Which lights hit different in Sri Lanka?',
+          image: null,
+          choices: [
+            { label: '🏮 Vesak lanterns', audio: null },
+            { label: '🎄 Christmas lights', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. Vesak lights the entire nation.',
+            'Sri Lanka has decided. Christmas in Sri Lanka is something the rest of the world cannot understand.',
+          ],
+        },
+        {
+          id: 'late-night-kottu-kiribath',
+          type: 'standard',
+          question: 'Two very different Sri Lankan experiences. Which one calls to you?',
+          image: null,
+          choices: [
+            { label: '🌙 Late night kottu', audio: null },
+            { label: '🌄 Early morning kiribath', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The midnight clang of the kottu blade wins.',
+            'Sri Lanka has decided. The morning begins pure and it begins with kiribath.',
+          ],
+        },
+        {
+          id: 'maalu-pol',
+          type: 'standard',
+          question: 'Your rice and curry plate. Which side dish is non-negotiable?',
+          image: null,
+          choices: [
+            { label: '🐟 Maalu miris', audio: null },
+            { label: '🥥 Pol sambol', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The chili fish rules the plate.',
+            'Sri Lanka has decided. No rice and curry is complete without pol sambol.',
+          ],
+        },
+        {
+          id: 'sunrise-sunset',
+          type: 'standard',
+          question: 'When do you fall in love with Sri Lanka the most?',
+          image: null,
+          choices: [
+            { label: '🌅 Sunrise', audio: null },
+            { label: '🌇 Sunset', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. The mornings here are unmatched.',
+            'Sri Lanka has decided. The golden hour at dusk is the island at its most beautiful.',
+          ],
+        },
+        {
+          id: 'baila-klassik',
+          type: 'audio',
+          question: 'Wedding dance floor. The DJ plays one. Which one gets you up?',
+          image: null,
+          choices: [
+            { label: '🎶 Baila', audio: 'REPLACE_WITH_BAILA_CLIP_URL' },
+            { label: '🎵 Klassik', audio: 'REPLACE_WITH_KLASSIK_CLIP_URL' },
+          ],
+          verdict: [
+            'Sri Lanka has decided. Baila fills the floor every time.',
+            'Sri Lanka has decided. Klassik never goes out of style.',
+          ],
+        },
+        {
+          id: 'hand-wash',
+          type: 'standard',
+          question: 'You eat with your hands. Be honest about the order.',
+          image: null,
+          choices: [
+            { label: '🙌 Wash before eating', audio: null },
+            { label: '🤷 Wash after. That\'s the whole point.', audio: null },
+          ],
+          verdict: [
+            'Sri Lanka has decided. Hygiene before flavour.',
+            'Sri Lanka has decided. You wash after because that\'s when it matters.',
+          ],
+        },
+      ];
+
+      // ── DOM ───────────────────────────────────────────────────
+      const overlay = document.createElement('div');
+      overlay.id = 'dilxhan-isay-overlay';
+      overlay.innerHTML = `
+        <div id="dilxhan-isay-modal">
+          <div id="isay-header">
+            <div>
+              <div id="isay-brand">👁️සේ</div>
+              <div id="isay-tagline">Sri Lanka Decides &nbsp;·&nbsp; ජනතාවගේ තීරණය</div>
+            </div>
+            <div id="isay-hbtns">
+              <button class="isay-hbtn" id="isay-copy-btn">🔗 Copy Link</button>
+              <button class="isay-hbtn" id="isay-share-btn">↗ Share</button>
+              <button id="isay-close-btn" aria-label="Close">✕</button>
+            </div>
+          </div>
+          <div id="isay-body"></div>
+        </div>
+        <div id="isay-toast"></div>
+      `;
+      document.body.appendChild(overlay);
+
+      // ── Helpers ───────────────────────────────────────────────
+      const $ = id => document.getElementById(id);
+      const STORAGE_KEY = 'dilxhan-isay-votes';
+
+      function getMyVotes() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+        catch(e) { return {}; }
+      }
+      function saveMyVote(qid, choice) {
+        const v = getMyVotes();
+        v[qid] = choice;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(v));
+      }
+
+      function showToast(msg) {
+        const t = $('isay-toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2200);
+      }
+
+      function fmtNum(n) {
+        if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+        if (n >= 1000)    return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+        return n.toLocaleString();
+      }
+
+      // ── State ─────────────────────────────────────────────────
+      let voteCounts = {};   // { 'q-id': { 0: N, 1: M }, ... }
+      let currentAudio = null;
+
+      // ── Audio playback ────────────────────────────────────────
+      function handleAudioBtn(btn) {
+        const src = btn.dataset.src;
+        if (!src || src.startsWith('REPLACE_')) {
+          showToast('Audio clip not set yet.');
+          return;
+        }
+
+        // Toggle: if already playing this clip, pause it
+        if (btn.classList.contains('playing') && currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+          btn.classList.remove('playing');
+          btn.textContent = btn.dataset.label;
+          return;
+        }
+
+        // Stop any currently playing clip
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+          document.querySelectorAll('.isay-audio-btn.playing').forEach(b => {
+            b.classList.remove('playing');
+            b.textContent = b.dataset.label;
+          });
+        }
+
+        const audio = new Audio(src);
+        currentAudio = audio;
+        btn.classList.add('playing');
+        btn.textContent = '⏸ Playing…';
+
+        audio.play().catch(() => {
+          showToast('Could not play audio.');
+          btn.classList.remove('playing');
+          btn.textContent = btn.dataset.label;
+          currentAudio = null;
+        });
+
+        audio.onended = () => {
+          btn.classList.remove('playing');
+          btn.textContent = btn.dataset.label;
+          currentAudio = null;
+        };
+      }
+
+      // ── Render one question card ──────────────────────────────
+      function renderCard(q, animate) {
+        const myVotes = getMyVotes();
+        const myChoice = myVotes[q.id];
+        const voted    = myChoice !== undefined;
+        const c0 = voteCounts[q.id]?.[0] ?? 0;
+        const c1 = voteCounts[q.id]?.[1] ?? 0;
+        const total = c0 + c1;
+        const pct0  = total > 0 ? Math.round(c0 / total * 100) : 50;
+        const pct1  = 100 - pct0;
+
+        const card = document.createElement('div');
+        card.className = 'isay-q';
+        card.dataset.qid = q.id;
+
+        let html = '';
+
+        // Image (type='image')
+        if (q.image && !q.image.startsWith('REPLACE_')) {
+          html += `<img class="isay-q-img" src="${q.image}" alt="" loading="lazy"/>`;
+        }
+
+        html += `<p class="isay-q-text">${q.question}</p>`;
+
+        // Audio play buttons (type='audio') — always visible even after voting
+        if (q.type === 'audio') {
+          html += `<div class="isay-audio-row">
+            <button class="isay-audio-btn" data-src="${q.choices[0].audio}" data-label="🔊 Play Clip A">🔊 Play Clip A</button>
+            <button class="isay-audio-btn" data-src="${q.choices[1].audio}" data-label="🔊 Play Clip B">🔊 Play Clip B</button>
+          </div>`;
+        }
+
+        if (!voted) {
+          // Pre-vote: show choice buttons
+          html += `<div class="isay-choices">
+            <button class="isay-vote-btn" data-choice="0">${q.choices[0].label}</button>
+            <button class="isay-vote-btn" data-choice="1">${q.choices[1].label}</button>
+          </div>
+          <p class="isay-skip">You can scroll past and come back to this one.</p>`;
+        } else {
+          // Post-vote: show results
+          const leader = c0 >= c1 ? 0 : 1;
+          const w0 = animate ? 0 : pct0;
+          const w1 = animate ? 0 : pct1;
+          const isDim0 = voted && myChoice !== 0 && leader !== 0;
+          const isDim1 = voted && myChoice !== 1 && leader !== 1;
+
+          html += `<div class="isay-results">
+            <div class="isay-bar-row">
+              <div class="isay-bar-meta">
+                <span class="isay-bar-label${myChoice === 0 ? ' mypick' : ''}">${q.choices[0].label}</span>
+                <span class="isay-bar-pct">${pct0}%</span>
+              </div>
+              <div class="isay-bar-track">
+                <div class="isay-bar-fill${animate ? ' animate' : ''}${isDim0 ? ' dim' : ''}" style="width:${w0}%" data-pct="${pct0}"></div>
+              </div>
+              <div class="isay-bar-votes">${fmtNum(c0)} votes</div>
+            </div>
+            <div class="isay-bar-row">
+              <div class="isay-bar-meta">
+                <span class="isay-bar-label${myChoice === 1 ? ' mypick' : ''}">${q.choices[1].label}</span>
+                <span class="isay-bar-pct">${pct1}%</span>
+              </div>
+              <div class="isay-bar-track">
+                <div class="isay-bar-fill${animate ? ' animate' : ''}${isDim1 ? ' dim' : ''}" style="width:${w1}%" data-pct="${pct1}"></div>
+              </div>
+              <div class="isay-bar-votes">${fmtNum(c1)} votes</div>
+            </div>
+            <div class="isay-total-votes">${fmtNum(total)} total votes on this question</div>
+            <div class="isay-verdict">${q.verdict[leader]}</div>
+          </div>`;
+        }
+
+        card.innerHTML = html;
+
+        // Wire vote buttons
+        card.querySelectorAll('.isay-vote-btn').forEach(btn => {
+          btn.addEventListener('click', () => handleVote(q.id, parseInt(btn.dataset.choice)));
+        });
+
+        // Wire audio buttons
+        card.querySelectorAll('.isay-audio-btn').forEach(btn => {
+          btn.addEventListener('click', () => handleAudioBtn(btn));
+        });
+
+        return card;
+      }
+
+      // ── Handle vote ───────────────────────────────────────────
+      async function handleVote(qid, choice) {
+        const q = Q.find(q => q.id === qid);
+        if (!q) return;
+
+        // Optimistic: increment local count immediately
+        if (!voteCounts[qid]) voteCounts[qid] = { 0: 0, 1: 0 };
+        voteCounts[qid][choice]++;
+
+        // Save to localStorage
+        saveMyVote(qid, choice);
+
+        // Replace card with results (animated bars)
+        const oldCard = document.querySelector(`[data-qid="${qid}"]`);
+        if (oldCard) {
+          const newCard = renderCard(q, true);
+          oldCard.parentNode.replaceChild(newCard, oldCard);
+          // Trigger bar animation after paint
+          setTimeout(() => {
+            newCard.querySelectorAll('.isay-bar-fill.animate').forEach(bar => {
+              bar.style.width = bar.dataset.pct + '%';
+            });
+          }, 40);
+        }
+
+        // POST to API (fire and forget — local state is already updated)
+        try {
+          await fetch('/api/poll', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ questionId: qid, choice }),
+          });
+        } catch(e) {
+          console.warn('[isay] vote POST failed', e);
+        }
+      }
+
+      // ── Render all questions ──────────────────────────────────
+      function renderAll() {
+        const body = $('isay-body');
+        body.innerHTML = '';
+
+        Q.forEach(q => {
+          const card = renderCard(q, false); // no animation on initial load
+          body.appendChild(card);
+        });
+
+        // Footer
+        const footer = document.createElement('div');
+        footer.id = 'isay-footer';
+        footer.innerHTML = `
+          <p class="isay-footer-msg">
+            The people have decided. You may sleep peacefully now.<br>
+            Or check back tomorrow — Sri Lanka might have changed its mind entirely.<br>
+            <em>It wouldn't be the first time.</em>
+          </p>
+          <a class="isay-inspired" href="https://neal.fun/lets-settle-this/" target="_blank" rel="noopener">
+            Inspired by Neal.fun ↗
+          </a>
+        `;
+        body.appendChild(footer);
+      }
+
+      // ── Fetch vote counts then render ─────────────────────────
+      async function init() {
+        try {
+          const res = await fetch('/api/poll');
+          if (res.ok) {
+            const data = await res.json();
+            // data shape: { "q-id": { "0": N, "1": M }, ... }
+            for (const [qid, counts] of Object.entries(data)) {
+              voteCounts[qid] = { 0: counts[0] || 0, 1: counts[1] || 0 };
+            }
+          }
+        } catch(e) {
+          console.warn('[isay] could not fetch vote counts', e);
+        }
+        renderAll();
+      }
+
+      // ── Share ─────────────────────────────────────────────────
+      const shareUrl = `${window.location.origin}/?isay=1`;
+      const shareMsg = `I just voted on 👁️සේ — Sri Lanka Decides 🇱🇰\nType 'isay' on dilxhan.com to join the debate and see where Sri Lanka stands.\n${shareUrl}`;
+
+      $('isay-copy-btn').addEventListener('click', () => {
+        navigator.clipboard.writeText(shareUrl)
+          .then(() => showToast('Link copied!'))
+          .catch(() => {
+            // Fallback for older browsers
+            const el = document.createElement('textarea');
+            el.value = shareUrl;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            el.remove();
+            showToast('Link copied!');
+          });
+      });
+
+      $('isay-share-btn').addEventListener('click', async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: '👁️සේ — Sri Lanka Decides',
+              text: shareMsg,
+              url: shareUrl,
+            });
+          } catch(e) { /* user cancelled */ }
+        } else {
+          // No Web Share API — fall back to copying the full message
+          navigator.clipboard.writeText(shareMsg)
+            .then(() => showToast('Share message copied!'))
+            .catch(() => showToast('Share not supported on this browser.'));
+        }
+      });
+
+      // ── Cleanup ───────────────────────────────────────────────
+      function cleanup() {
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+        overlay.remove();
+        done();
+      }
+
+      $('isay-close-btn').addEventListener('click', cleanup);
+      overlay.addEventListener('click', e => { if (e.target === overlay) cleanup(); });
+
+      // ── Init ──────────────────────────────────────────────────
+      init();
+    },
+  };
+
+
+  // ════════════════════════════════════════════════════════════
   //  ── TEMPLATE — copy this block to add a new animation ────
   //
   //  Steps:
