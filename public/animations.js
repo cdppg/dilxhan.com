@@ -4312,8 +4312,9 @@
             position:fixed; inset:0; z-index:10001;
             background:rgba(8,3,5,0.8);
             backdrop-filter:blur(8px);
-            display:flex; align-items:center; justify-content:center;
-            padding:20px; box-sizing:border-box;
+            display:flex; align-items:flex-start; justify-content:center;
+            padding:24px 16px; box-sizing:border-box;
+            overflow-y:auto;
             animation:isay-fi 300ms ease forwards;
           }
           @keyframes isay-fi{from{opacity:0}to{opacity:1}}
@@ -4322,9 +4323,9 @@
             background:#FDFAF8;
             border-radius:10px;
             width:min(640px,96vw);
-            max-height:calc(100vh - 40px);
             display:flex; flex-direction:column; overflow:hidden;
             box-shadow:0 24px 80px rgba(0,0,0,0.5),0 0 0 1px rgba(141,21,58,0.12);
+            margin:auto 0;
           }
 
           /* ── Header ── */
@@ -4367,7 +4368,6 @@
 
           /* ── Body ── */
           #isay-body {
-            flex:1; overflow-y:auto;
             padding:20px; display:flex; flex-direction:column; gap:14px;
           }
           #isay-body::-webkit-scrollbar{width:4px}
@@ -4563,6 +4563,7 @@
           verdict: [
             'Sri Lanka has decided. The clang of the blade wins every time.',
             'Sri Lanka has decided. The perfect bowl reigns supreme.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4577,6 +4578,7 @@
           verdict: [
             'Sri Lanka has decided. The city lights and the chaos win.',
             'Sri Lanka has decided. The hill capital and its peace win.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4591,6 +4593,7 @@
           verdict: [
             'Sri Lanka has decided. Ceylon tea remains untouchable.',
             'Sri Lanka has decided. The coffee wave has finally arrived.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4605,6 +4608,7 @@
           verdict: [
             'Sri Lanka has decided. Salt, sand, and the sound of waves.',
             'Sri Lanka has decided. Misty mornings in the hills prevail.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4619,6 +4623,7 @@
           verdict: [
             'Sri Lanka has decided. The noodle nest wins breakfast.',
             'Sri Lanka has decided. Pittu earns its place at the table.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4633,6 +4638,7 @@
           verdict: [
             'Sri Lanka has decided. It\'s Pol Sambol and always will be.',
             'Sri Lanka has decided. Coconut Sambol is perfectly acceptable.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4647,6 +4653,7 @@
           verdict: [
             'Sri Lanka has decided. The train through the hills wins every time.',
             'Sri Lanka has decided. The bus gets you there. Somehow. Eventually.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4661,6 +4668,7 @@
           verdict: [
             'Sri Lanka has decided. Sweet and savoury is accepted here.',
             'Sri Lanka has decided. Some lines shall never be crossed.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4675,6 +4683,7 @@
           verdict: [
             'Sri Lanka has decided. Punctuality exists here after all.',
             'Sri Lanka has decided. SL time is a cultural institution and we are keeping it.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4689,6 +4698,7 @@
           verdict: [
             'Sri Lanka has decided. The traditional steamed custard wins.',
             'Sri Lanka has decided. Ice cream transcends all culture and season.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4703,6 +4713,7 @@
           verdict: [
             'Sri Lanka has decided. The stadium is the temple.',
             'Sri Lanka has decided. A few people managed to stay neutral. Barely.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4717,6 +4728,7 @@
           verdict: [
             'Sri Lanka has decided. The island holds its people after all.',
             'Sri Lanka has decided. The world is calling and we are answering.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4731,6 +4743,7 @@
           verdict: [
             'Sri Lanka has decided. No restaurant in the world beats home food.',
             'Sri Lanka has decided. Sometimes you just want a menu and someone else to cook.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4745,6 +4758,7 @@
           verdict: [
             'Sri Lanka has decided. The tuk-tuk is untouchable. Culturally iconic.',
             'Sri Lanka has decided. We humbly acknowledge our other contributions.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4759,6 +4773,7 @@
           verdict: [
             'Sri Lanka has decided. Vesak lights the entire nation.',
             'Sri Lanka has decided. Christmas in Sri Lanka is something the rest of the world cannot understand.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4773,6 +4788,7 @@
           verdict: [
             'Sri Lanka has decided. The midnight clang of the kottu blade wins.',
             'Sri Lanka has decided. The morning begins pure and it begins with kiribath.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4787,6 +4803,7 @@
           verdict: [
             'Sri Lanka has decided. The chili fish rules the plate.',
             'Sri Lanka has decided. No rice and curry is complete without pol sambol.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4801,6 +4818,7 @@
           verdict: [
             'Sri Lanka has decided. The mornings here are unmatched.',
             'Sri Lanka has decided. The golden hour at dusk is the island at its most beautiful.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4815,6 +4833,7 @@
           verdict: [
             'Sri Lanka has decided. Baila fills the floor every time.',
             'Sri Lanka has decided. Klassik never goes out of style.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
         {
@@ -4829,6 +4848,7 @@
           verdict: [
             'Sri Lanka has decided. Hygiene before flavour.',
             'Sri Lanka has decided. You wash after because that\'s when it matters.',
+            'Sri Lanka is divided on this one. The debate continues.',
           ],
         },
       ];
@@ -4973,7 +4993,7 @@
           <p class="isay-skip">You can scroll past and come back to this one.</p>`;
         } else {
           // Post-vote: show results
-          const leader = c0 >= c1 ? 0 : 1;
+          const leader = c0 === c1 ? 2 : c0 > c1 ? 0 : 1;
           const w0 = animate ? 0 : pct0;
           const w1 = animate ? 0 : pct1;
           const isDim0 = voted && myChoice !== 0 && leader !== 0;
